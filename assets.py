@@ -89,15 +89,15 @@ def load_assets():
     }
 
     sounds = {
-        "grass": [carica_suono(f'grass-00{i}.ogg', 0.1) for i in range(1, 5)],
+        # stessi suoni e volumi della versione originale del gioco
+        "grass": [carica_suono('grass-001.ogg', 0.1)],
         "coin": [carica_suono('coin.ogg', 1.0)],
         "morte": [carica_suono('boss_morte.ogg', 0.5)],
         "stone": [carica_suono('stone.ogg', 0.1)],
         "acqua": [carica_suono('acqua.ogg', 0.1)],
-        "attack": [carica_suono(f'spada-00{i}.ogg', 0.4) for i in range(1, 5)],
-        "player_dmg": [carica_suono('player_dmg.ogg', 0.2)],
-        "bat_morte": [carica_suono('bat_mobile.ogg', 0.5)],
-        "boss_attacco": [carica_suono(f'zombie-00{i}.ogg', 0.4) for i in range(1, 6)],
+        "attack": [carica_suono('spada-004.ogg', 0.5)],
+        "player_dmg": [carica_suono('player_dmg.ogg', 0.1)],
+        "bat_morte": [carica_suono('bat_mobile.ogg', 1.0)],
     }
 
     FONT = {
