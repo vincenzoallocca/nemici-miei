@@ -1,7 +1,7 @@
 import pygame
 import assets
 from hud import testo_con_ombra
-from settings import BIANCO, ROSSO, ROSSO_SCURO, LUNGHEZZA, ALTEZZA
+from settings import BIANCO, ROSSO, ROSSO_SCURO, LUNGHEZZA, ALTEZZA, WEB
 
 
 class Bottone:
@@ -26,24 +26,27 @@ COMANDI = [
     "WASD / Frecce  muoviti",
     "Click / Spazio  attacca",
     "E  interagisci",
-    "ESC  pausa      F11  schermo intero",
+    "ESC  pausa" + ("" if WEB else "      F11  schermo intero"),
 ]
+COMANDI_TOUCH = "Da telefono: joystick a sinistra, ATK ed E a destra"
 
 
 class Menu:
     def __init__(self, finestra):
         self.finestra = finestra
         self.bottone_start = Bottone("START", (LUNGHEZZA // 2, ALTEZZA // 2 + 20))
-        self.bottone_esci = Bottone("ESCI", (LUNGHEZZA // 2, ALTEZZA // 2 + 90))
+        # nel browser non si può chiudere la finestra: il bottone ESCI serve solo su pc
+        self.bottone_esci = None if WEB else Bottone("ESCI", (LUNGHEZZA // 2, ALTEZZA // 2 + 90))
 
     def draw(self):
         self.finestra.blit(assets.SFONDO_IMAGES[3], (0, 0))
         testo_con_ombra(self.finestra, assets.FONT["dungeon_70"], "Nemici Miei",
                         (LUNGHEZZA // 2, ALTEZZA // 2 - 110), ROSSO, ancora="center")
         self.bottone_start.draw(self.finestra)
-        self.bottone_esci.draw(self.finestra)
-        y = ALTEZZA - 140
-        for riga in COMANDI:
+        if self.bottone_esci:
+            self.bottone_esci.draw(self.finestra)
+        y = ALTEZZA - 168
+        for riga in COMANDI + [COMANDI_TOUCH]:
             testo_con_ombra(self.finestra, assets.FONT["arcade_22"], riga, (LUNGHEZZA // 2, y), ancora="center")
             y += 28
 
@@ -54,6 +57,6 @@ class Menu:
                 return "start"
         if self.bottone_start.cliccato(events):
             return "start"
-        if self.bottone_esci.cliccato(events):
+        if self.bottone_esci and self.bottone_esci.cliccato(events):
             return "esci"
         return None

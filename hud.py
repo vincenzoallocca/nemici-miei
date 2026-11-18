@@ -50,6 +50,7 @@ class HUD:
         self.font3 = assets.FONT["dungeon_20"]
         self.dialogue_index = 0
         self.giaparlato = False
+        self.touch = False   # con i comandi touch il pulsante pausa sostituisce la scritta "ESC"
 
     # ---------- dialogo con l'npc ----------
     def interagisci_npc(self):
@@ -119,7 +120,8 @@ class HUD:
 
         # obiettivo in alto a sinistra e comandi in alto a destra
         testo_con_ombra(self.finestra, self.font2, f"Obiettivo: {self.obiettivo()}", (16, 12), GIALLO)
-        testo_con_ombra(self.finestra, self.font_piccolo, "ESC  pausa", (LUNGHEZZA - 16, 14), ancora="topright")
+        if not self.touch:
+            testo_con_ombra(self.finestra, self.font_piccolo, "ESC  pausa", (LUNGHEZZA - 16, 14), ancora="topright")
 
         # "!" sopra l'npc finché non ci si parla
         if self.mondo.livello_id == 1 and not self.giaparlato and not self.npc.parlando:

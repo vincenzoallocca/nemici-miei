@@ -121,6 +121,39 @@ class TestPartita(unittest.TestCase):
         self.assertEqual(g.player.vita, 100)
         self.assertEqual(g.mondo.livello_id, 1)
 
+    def test_comandi_touch(self):
+        self.inizia()
+        g = self.gioco
+        g.bats = []
+
+        def dito(tipo, fid, x, y):
+            return pygame.event.Event(tipo, finger_id=fid, touch_id=0, x=x / 960, y=y / 720, dx=0, dy=0, pressure=1)
+
+        # trascinando il joystick verso destra il giocatore si sposta a destra sullo schermo
+        g.player.piazza(2, 7)
+        x0 = g.player.x
+        self.frames(1, [dito(pygame.FINGERDOWN, 1, 200, 400)])
+        self.assertTrue(g.touch.attivo)
+        self.frames(1, [dito(pygame.FINGERMOTION, 1, 300, 400)])
+        self.assertEqual(g.touch.passo(), (1, -1))
+        self.frames(30)
+        self.assertGreater(g.player.x, x0)
+        self.assertEqual(g.player.direction, "right")
+        self.frames(1, [dito(pygame.FINGERUP, 1, 300, 400)])
+        self.assertIsNone(g.touch.passo())
+
+        # il pulsante di attacco fa partire l'attacco
+        g.player.last_attack_time = -10_000
+        cx, cy = g.touch.attacco.centro
+        self.frames(1, [dito(pygame.FINGERDOWN, 2, cx, cy)])
+        self.assertGreater(g.player.last_attack_time, -10_000)
+        self.frames(1, [dito(pygame.FINGERUP, 2, cx, cy)])
+
+        # il pulsante pausa mette in pausa
+        px, py = g.touch.pausa.centro
+        self.frames(1, [dito(pygame.FINGERDOWN, 3, px, py)])
+        self.assertEqual(g.stato, "pausa")
+
     def test_pausa(self):
         self.inizia()
         self.frames(1, [tasto(pygame.K_ESCAPE)])

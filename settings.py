@@ -1,4 +1,5 @@
 import os
+import sys
 
 # cartella del progetto: permette di avviare il gioco da qualsiasi directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -8,6 +9,9 @@ def percorso(*parti):
     """Restituisce il percorso assoluto di un file dentro la cartella assets."""
     return os.path.join(BASE_DIR, "assets", *parti)
 
+
+# True quando il gioco gira nel browser (pygbag / WebAssembly)
+WEB = sys.platform == "emscripten"
 
 # finestra
 LUNGHEZZA = 960
