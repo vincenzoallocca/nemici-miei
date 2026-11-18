@@ -21,6 +21,11 @@ assets.load_assets()
 
 from main import Gioco  # noqa: E402
 
+# orologio finto: ogni frame simulato dura 1/60 di secondo, così i test non dipendono
+# dalla velocità della macchina (cooldown e attese del gioco usano pygame.time.get_ticks)
+orologio = {"ms": 100_000}
+pygame.time.get_ticks = lambda: int(orologio["ms"])
+
 
 def tasto(key):
     return pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode="", scancode=0)
@@ -37,6 +42,7 @@ class TestPartita(unittest.TestCase):
 
     def frames(self, n, events=()):
         for _ in range(n):
+            orologio["ms"] += 1000 / 60
             self.assertTrue(self.gioco.step(list(events)))
 
     def inizia(self):
@@ -164,9 +170,13 @@ class TestPartita(unittest.TestCase):
     def test_pipistrelli_attaccano_e_muoiono(self):
         self.inizia()
         g = self.gioco
-        # lascia che i pipistrelli raggiungano il giocatore fermo
-        self.frames(60 * 15)
+        # lascia che i pipistrelli raggiungano il giocatore fermo e lo mordano (al massimo 20 secondi)
+        for _ in range(60 * 20):
+            self.frames(1)
+            if g.player.vita < 100:
+                break
         self.assertLess(g.player.vita, 100)
+        self.assertEqual(g.stato, "gioco")
         vicini = [b for b in g.bats if b.distanza(g.player) <= 1]
         self.assertTrue(vicini)
         # i pipistrelli non si sovrappongono
@@ -174,10 +184,13 @@ class TestPartita(unittest.TestCase):
         self.assertEqual(len(posizioni), len(set(posizioni)))
         monete = g.player.monete
         bat = vicini[0]
-        while bat.vivo:
+        for _ in range(10):
+            if not bat.vivo:
+                break
             g.player.last_attack_time = -10_000
             g.player.vita = 100
             self.frames(1, [tasto(pygame.K_SPACE)])
+        self.assertFalse(bat.vivo)
         self.assertGreater(g.player.monete, monete)
 
 
