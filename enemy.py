@@ -1,105 +1,67 @@
+import math
 import pygame
-import assets 
-from settings import GRANDEZZA_TILES
+import assets
+from entita import Entita
 
-class Enemy:
-    def __init__(self, tile_x, tile_y, mondo, finestra, player, img, hp, cooldown, velocita, dmg):
-        self.start(tile_x, tile_y, mondo, finestra, player, img, hp, cooldown, velocita, dmg)
 
-    def start(self, tile_x, tile_y, mondo, finestra, player, img, hp, cooldown, velocita, dmg):
-        self.mondo = mondo
-        self.finestra = finestra
-        self.tile_x = tile_x
-        self.tile_y = tile_y
+class Enemy(Entita):
+    """Pipistrello: insegue il giocatore e lo morde quando gli è accanto."""
+
+    def __init__(self, tile_x, tile_y, mondo, finestra, player, effetti, hp=50, cooldown=2500, velocita=2, dmg=10):
+        super().__init__(tile_x, tile_y, mondo, finestra, velocita)
         self.player = player
-        self.img = img
+        self.effetti = effetti
         self.hp = hp
+        self.hp_max = hp
         self.cooldown = cooldown
-        self.velocita = velocita
         self.dmg = dmg
-        sx, sy = self.mondo.tile_to_screen(tile_x, tile_y)
-        bottom_center = (sx + GRANDEZZA_TILES // 2, sy + GRANDEZZA_TILES)
-
-        self.scale_factor = 1.5
-        new_size = (int(GRANDEZZA_TILES * self.scale_factor), int(GRANDEZZA_TILES * self.scale_factor))
-        self.img = pygame.transform.scale(self.img, new_size)
-        self.rect = self.img.get_rect(midbottom=bottom_center)    
-        self.dest_x, self.dest_y = self.rect.topleft
-        self.in_movimento = False
-        self.direction = "down"
-        self.frame_index = 0
-        self.frame_counter = 0
         self.last_attack_time = 0
+        self.vicino = False   # True quando è accanto al giocatore
+        self.fase_volo = tile_x + tile_y  # sfasa l'oscillazione tra i pipistrelli
 
+    @property
+    def vivo(self):
+        return self.hp > 0
 
-    def update(self):
-        # si muove verso il giocatore
-        if self.rect.topleft != (self.dest_x, self.dest_y):
-            dx = self.dest_x - self.rect.x
-            dy = self.dest_y - self.rect.y
-            if dx:
-                self.rect.x += self.velocita if dx > 0 else -self.velocita
-                if abs(dx) < self.velocita:
-                    self.rect.x = self.dest_x
-            if dy:
-                self.rect.y += self.velocita if dy > 0 else -self.velocita
-                if abs(dy) < self.velocita:
-                    self.rect.y = self.dest_y
-            self.animate()
+    def update(self, occupati=()):
+        if not self.vivo:
+            return
+        if self.in_movimento:
+            self.aggiorna_movimento()
+        elif self.distanza(self.player) <= 1:
+            self.attacca()
         else:
-            self.in_movimento = False
-            self.calcola_prossima_mossa()
-        self.attacca()
-        self.finestra.blit(self.img, self.rect)
+            self.vicino = False
+            # insegue il giocatore senza entrare nel suo tile o in quello di un altro nemico
+            self.insegui(self.player.tile_x, self.player.tile_y, occupati)
 
     def attacca(self):
-        current_time = pygame.time.get_ticks()
-        if self.tile_x == self.player.tile_x and self.tile_y == self.player.tile_y:
-            if current_time - self.last_attack_time >= self.cooldown:
-                self.player.take_damage(self.dmg)
-                self.last_attack_time = current_time
+        ora = pygame.time.get_ticks()
+        if not self.vicino:
+            # appena arriva accanto aspetta un attimo prima di mordere: il giocatore può reagire
+            self.vicino = True
+            self.last_attack_time = ora - self.cooldown + 700
+        if ora - self.last_attack_time >= self.cooldown:
+            self.player.take_damage(self.dmg)
+            self.last_attack_time = ora
 
-    def calcola_prossima_mossa(self):
-        # segue il giocatore
-        dx = self.player.tile_x - self.tile_x
-        dy = self.player.tile_y - self.tile_y
-        new_tx, new_ty = self.tile_x, self.tile_y
-        if abs(dx) > abs(dy):
-            if dx > 0:
-                new_tx += 1
-                self.direction = "right"
-            else:
-                new_tx -= 1
-                self.direction = "left"
-        else:
-            if dy > 0:
-                new_ty += 1
-                self.direction = "down"
-            else:
-                new_ty -= 1
-                self.direction = "up"
-                
-        if self.mondo.is_tile_walkable(new_tx, new_ty):
-            self.tile_x, self.tile_y = new_tx, new_ty
-            sx, sy = self.mondo.tile_to_screen(new_tx, new_ty)
-            bottom_center = (sx + GRANDEZZA_TILES // 2, sy + GRANDEZZA_TILES // 2)
-            self.dest_x = bottom_center[0] - self.rect.width // 2
-            self.dest_y = bottom_center[1] - self.rect.height
-            self.in_movimento = True
-        self.animate()
-
-    def animate(self):
-        self.frame_counter += 1
-        if self.frame_counter >= 15:
-            self.frame_counter = 0
-            self.frame_index = (self.frame_index + 1) % len(assets.ENEMY_FRAMES[self.direction])
-        frame = assets.ENEMY_FRAMES[self.direction][self.frame_index]
-        new_size = (int(frame.get_width() * self.scale_factor), int(frame.get_height() * self.scale_factor))
-        self.img = pygame.transform.scale(frame, new_size)
-        self.rect = self.img.get_rect(midbottom=self.rect.midbottom)
+    def disegna(self):
+        if not self.vivo:
+            return
+        self.disegna_ombra(26)
+        self.fase_volo += 0.08
+        alzo = 30 + int(math.sin(self.fase_volo) * 4)  # svolazza sopra il terreno
+        self.disegna_sprite(self.anima(assets.ENEMY_FRAMES, 10), alzo)
 
     def take_damage(self, amount):
-        self.hp -= amount
-        if self.hp < 0:
-            self.hp = 0
-            assets.sounds["bat_morte"].play()
+        if not self.vivo:
+            return
+        self.hp = max(0, self.hp - amount)
+        self.flash_timer = 8
+        self.effetti.testo(f"-{amount}", self.x, self.y - 60, (255, 230, 120))
+        if not self.vivo:
+            assets.suona("bat_morte")
+            # ogni pipistrello sconfitto lascia una moneta
+            self.player.monete += 1
+            assets.suona("coin")
+            self.effetti.testo("+1 moneta", self.x, self.y - 85, (250, 210, 60))

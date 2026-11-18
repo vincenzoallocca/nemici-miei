@@ -1,115 +1,107 @@
 import pygame
 import assets
-from settings import GRANDEZZA_TILES
+from entita import Entita
 
-class Boss:
-    def __init__(self, tile_x, tile_y, mondo, finestra, player, img, damage, hp):
-        self.tile_x = tile_x
-        self.tile_y = tile_y
-        self.hp = hp
-        self.mondo = mondo
-        self.finestra = finestra
+CARICA_NORMALE = 35   # frame di preparazione prima del colpo
+CARICA_FURIA = 22
+DURATA_RITIRATA = 180  # frame passati a ritirarsi e rigenerarsi dopo un colpo
+
+
+class Boss(Entita):
+    """Il boss insegue il giocatore, carica un colpo e poi si ritira a rigenerarsi.
+
+    Sotto metà vita entra in furia: diventa più grande, rosso, veloce e colpisce più forte.
+    """
+
+    def __init__(self, tile_x, tile_y, mondo, finestra, player, effetti, damage=10, hp=150):
+        super().__init__(tile_x, tile_y, mondo, finestra, velocita=3)
         self.player = player
-        self.img = img
-        self.speed = 6
+        self.effetti = effetti
         self.damage = damage
-        self.direction = "down"
-        self.frame = 0
-        self.frame_index = 0
-        self.counter = 0
-        self.last_attack_time = 0
-        self.reg_tile_x = 0
-        self.reg_tile_y = 0
-        self.in_movimento = False
-        self.rigenerando = False
-        self.counter_reg = 0
-        self.hp_max = 200
-        sx, sy = self.mondo.tile_to_screen(tile_x, tile_y)
-        bottom_center = (sx + GRANDEZZA_TILES // 2, sy + GRANDEZZA_TILES)
-        self.rect = self.img.get_rect(midbottom=bottom_center)
-        self.dest_x, self.dest_y = self.rect.topleft
+        self.hp = hp
+        self.hp_max = hp
+        self.soglia_furia = hp / 2
+        self.furia = False
+        self.stato = "insegui"     # insegui | carica | ritirata
+        self.timer = 0
+        self.rigenerazione = 0.05  # vita recuperata per frame durante la ritirata
 
-    def update(self):
-        if self.rect.topleft != (self.dest_x, self.dest_y):
-            dx = self.dest_x - self.rect.x
-            dy = self.dest_y - self.rect.y
-            if dx:
-                self.rect.x += self.speed if dx > 0 else -self.speed
-                if abs(dx) < self.speed:
-                    self.rect.x = self.dest_x
-            if dy:
-                self.rect.y += self.speed if dy > 0 else -self.speed
-                if abs(dy) < self.speed:
-                    self.rect.y = self.dest_y
-            self.animate()
-        else:
-            self.in_movimento = False
-            self.calcola_prossima_mossa()
+    @property
+    def vivo(self):
+        return self.hp > 0
 
-        if self.rigenerando and self.counter_reg <= 600 and self.hp != 0:
-            self.hp += 0.05
-            self.counter_reg += 1
-            if self.hp >= self.hp_max:
-                self.hp = self.hp_max
-            if self.counter_reg == 180:
-                self.rigenerando = False
-                self.attacca()
-                self.counter_reg = 0
+    def update(self, occupati=()):
+        if not self.vivo:
+            return
+        if not self.furia and self.hp <= self.soglia_furia:
+            self.entra_in_furia()
 
-        if self.hp <= 100:
-            self.img = pygame.transform.scale(self.img, (GRANDEZZA_TILES, GRANDEZZA_TILES))
-            self.velocita = 8
-            self.hp_max = 100
-        self.attacca()
-        self.finestra.blit(self.img, self.rect)
+        if self.in_movimento:
+            self.aggiorna_movimento()
 
-    def attacca(self):
-        if  ((self.tile_x == self.player.tile_x or self.tile_x == self.player.tile_x + 1 or self.tile_x == self.player.tile_x + 2) and (self.tile_y == self.player.tile_y or self.tile_x == self.player.tile_x + 1 or self.tile_x == self.player.tile_x + 2)) and not self.rigenerando:
-                self.player.take_damage(self.damage)
-                self.rigenerando = True
+        if self.stato == "ritirata":
+            self.timer += 1
+            # rigenera, ma senza uscire dalla furia
+            limite = self.soglia_furia if self.furia else self.hp_max
+            self.hp = min(limite, self.hp + self.rigenerazione)
+            if not self.in_movimento:
+                angolo = self.angolo_lontano()
+                self.insegui(angolo[0], angolo[1], occupati)
+            if self.timer >= DURATA_RITIRATA:
+                self.stato = "insegui"
 
-    def calcola_prossima_mossa(self):
-        if self.rigenerando:
-            dx = self.reg_tile_x - self.tile_x
-            dy = self.reg_tile_y - self.tile_y
-        else:
-            dx = self.player.tile_x - self.tile_x
-            dy = self.player.tile_y - self.tile_y
-        new_tx, new_ty = self.tile_x, self.tile_y
-        if abs(dx) > abs(dy):
-            if dx > 0:
-                new_tx += 1
-                self.direction = "right"
+        elif self.stato == "carica":
+            self.timer += 1
+            if self.timer >= (CARICA_FURIA if self.furia else CARICA_NORMALE):
+                # il colpo va a segno solo se il giocatore è ancora vicino
+                if self.distanza(self.player) <= 1:
+                    self.player.take_damage(self.damage)
+                assets.suona("boss_attacco")
+                self.stato = "ritirata"
+                self.timer = 0
+
+        elif not self.in_movimento:
+            if self.distanza(self.player) <= 1:
+                self.stato = "carica"
+                self.timer = 0
+                self.direction = self.direzione_verso(self.player.tile_x - self.tile_x,
+                                                      self.player.tile_y - self.tile_y)
             else:
-                new_tx -= 1
-                self.direction = "left"
-        else:
-            if dy > 0:
-                new_ty += 1
-                self.direction = "down"
-            else:
-                new_ty -= 1
-                self.direction = "up"
-                
-        if self.mondo.is_tile_walkable(new_tx, new_ty):
-            self.tile_x, self.tile_y = new_tx, new_ty
-            sx, sy = self.mondo.tile_to_screen(new_tx, new_ty)
-            bottom_center = (sx + GRANDEZZA_TILES // 2, sy + GRANDEZZA_TILES // 2)
-            self.dest_x = bottom_center[0] - self.rect.width // 2
-            self.dest_y = bottom_center[1] - self.rect.height
-            self.in_movimento = True
-        self.animate()
+                self.insegui(self.player.tile_x, self.player.tile_y, occupati)
 
-    def animate(self):
-        self.frame += 1
-        if self.frame >= 60:
-            self.frame = 0
-        frame = assets.BOSS_FRAMES[self.direction][self.frame_index]
-        self.img = frame
-    
+    def entra_in_furia(self):
+        self.furia = True
+        self.velocita = 4.5
+        self.damage = int(self.damage * 1.5)
+        self.effetti.testo("FURIA!", self.x, self.y - 120, (255, 60, 60))
+
+    # l'angolo della mappa più lontano dal giocatore (dove andare a rigenerarsi)
+    def angolo_lontano(self):
+        angoli = [(0, 0), (self.mondo.num_colonne - 1, 0), (0, self.mondo.num_righe - 1),
+                  (self.mondo.num_colonne - 1, self.mondo.num_righe - 1)]
+        return max(angoli, key=lambda a: abs(a[0] - self.player.tile_x) + abs(a[1] - self.player.tile_y))
+
+    def disegna(self):
+        if not self.vivo:
+            return
+        frames = assets.BOSS_FRAMES_FURIA if self.furia else assets.BOSS_FRAMES
+        self.disegna_ombra(48 if self.furia else 38)
+        if self.stato == "carica":
+            # trema mentre prepara il colpo
+            img = frames[self.direction][0]
+            scossa = 2 if (self.timer // 3) % 2 else -2
+            self.x += scossa
+            rect = self.disegna_sprite(img)
+            self.x -= scossa
+            pygame.draw.circle(self.finestra, (255, 60, 60), (rect.centerx, rect.top - 12), 6)
+        else:
+            self.disegna_sprite(self.anima(frames, 10))
+
     def take_damage(self, amount):
-        self.hp -= amount
-        if self.hp < 0:
-            self.hp = 0
-            assets.sounds["morte"].play()    
-            
+        if not self.vivo:
+            return
+        self.hp = max(0, self.hp - amount)
+        self.flash_timer = 8
+        self.effetti.testo(f"-{amount}", self.x, self.y - 100, (255, 230, 120))
+        if not self.vivo:
+            assets.suona("morte")
