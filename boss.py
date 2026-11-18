@@ -56,7 +56,6 @@ class Boss(Entita):
                 # il colpo va a segno solo se il giocatore è ancora vicino
                 if self.distanza(self.player) <= 1:
                     self.player.take_damage(self.damage)
-                assets.suona("boss_attacco")
                 self.stato = "ritirata"
                 self.timer = 0
 

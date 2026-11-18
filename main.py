@@ -59,7 +59,7 @@ class Gioco:
 
     def vai_al_menu(self):
         self.stato = "menu"
-        self.cambia_musica("intro.ogg", 0.3)
+        self.cambia_musica("soundtrack.ogg", 0.2)
 
     # crea da zero tutti gli oggetti della partita (usato anche per "riprova")
     def nuova_partita(self):
@@ -101,7 +101,7 @@ class Gioco:
         self.tregua = FRAME_DI_TREGUA
         self.effetti.testo("LIVELLO 2", LUNGHEZZA // 2, ALTEZZA // 2 - 120, (255, 80, 80))
         self.hud.mostra_messaggio(f"Sconfiggi il boss! Attacca con {self.comando_attacco} e allontanati quando trema.", 7)
-        self.cambia_musica("boss_soundtrack.ogg", 0.6)
+        self.cambia_musica("boss_soundtrack.ogg", 1.0)
 
     def nemici_vivi(self):
         nemici = self.bats if self.mondo.livello_id == 1 else [self.boss]
