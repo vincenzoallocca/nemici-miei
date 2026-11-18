@@ -1,7 +1,8 @@
+import asyncio
 import random
 import pygame
 import assets
-from settings import LUNGHEZZA, ALTEZZA, FPS, TITOLO, percorso
+from settings import LUNGHEZZA, ALTEZZA, FPS, TITOLO, WEB, percorso
 from world import Mondo
 from player import Giocatore
 from hud import HUD, testo_con_ombra
@@ -13,6 +14,7 @@ from menu import Menu
 from win import Win
 from riprova import Try, Pausa
 from effetti import Effetti
+from touch import ControlliTouch
 
 # posizioni sulla griglia (colonna, riga)
 SPAWN_GIOCATORE = (0, 0)
@@ -32,6 +34,7 @@ class Gioco:
         self.schermata_pausa = Pausa(finestra)
         self.win = None
         self.canzone = None
+        self.touch = ControlliTouch()
         self.vai_al_menu()
 
     # ---------- utilità ----------
@@ -42,7 +45,7 @@ class Gioco:
 
     def vai_al_menu(self):
         self.stato = "menu"
-        self.cambia_musica("intro.mp3", 0.3)
+        self.cambia_musica("intro.ogg", 0.3)
 
     # crea da zero tutti gli oggetti della partita (usato anche per "riprova")
     def nuova_partita(self):
@@ -55,9 +58,11 @@ class Gioco:
         self.bats = self.genera_pipistrelli(random.randint(3, 5))
         self.boss = None
         self.hud = HUD(f, self.player, self.npc, self.boss, self.mondo)
+        self.hud.touch = self.touch.attivo
+        self.touch.reset()
         self.timer_vittoria = 0
         self.stato = "gioco"
-        self.cambia_musica("soundtrack.mp3", 0.2)
+        self.cambia_musica("soundtrack.ogg", 0.2)
 
     def genera_pipistrelli(self, quanti):
         # niente pipistrelli addosso al giocatore o sul portale
@@ -75,7 +80,7 @@ class Gioco:
         self.boss = Boss(*SPAWN_BOSS, self.mondo, self.finestra, self.player, self.effetti)
         self.hud.boss = self.boss
         self.effetti.testo("LIVELLO 2", LUNGHEZZA // 2, ALTEZZA // 2 - 120, (255, 80, 80))
-        self.cambia_musica("boss_soundtrack.mp3", 0.6)
+        self.cambia_musica("boss_soundtrack.ogg", 0.6)
 
     def nemici_vivi(self):
         nemici = self.bats if self.mondo.livello_id == 1 else [self.boss]
@@ -87,7 +92,7 @@ class Gioco:
         for e in events:
             if e.type == pygame.QUIT:
                 return False
-            if e.type == pygame.KEYDOWN and e.key == pygame.K_F11:
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_F11 and not WEB:
                 pygame.display.toggle_fullscreen()
 
         if self.stato == "menu":
@@ -130,6 +135,17 @@ class Gioco:
         return True
 
     def aggiorna_gioco(self, events):
+        azioni_touch = self.touch.handle_events(events)
+        self.hud.touch = self.touch.attivo
+        if "pausa" in azioni_touch:
+            self.touch.reset()
+            self.stato = "pausa"
+            return
+        if "interagisci" in azioni_touch:
+            self.interagisci()
+        if "attacca" in azioni_touch:
+            self.player.attacca(self.nemici_vivi())
+
         for e in events:
             if e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_ESCAPE, pygame.K_p):
@@ -139,7 +155,8 @@ class Gioco:
                     self.interagisci()
                 if e.key == pygame.K_SPACE:
                     self.player.attacca(self.nemici_vivi())
-            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and not getattr(e, "touch", False):
+                # i tocchi sullo schermo generano anche click "finti": li gestiscono i comandi touch
                 self.player.attacca(self.nemici_vivi())
             elif e.type == pygame.WINDOWFOCUSLOST:
                 self.stato = "pausa"
@@ -149,7 +166,7 @@ class Gioco:
         # il giocatore non può attraversare i nemici, e i nemici non si sovrappongono
         tiles_nemici = {(n.tile_x, n.tile_y) for n in nemici}
         if self.player.vivo:
-            self.player.update(tiles_nemici)
+            self.player.update(tiles_nemici, self.touch.passo())
         for n in nemici:
             occupati = {(self.player.tile_x, self.player.tile_y)} | {
                 (m.tile_x, m.tile_y) for m in nemici if m is not n}
@@ -205,15 +222,18 @@ class Gioco:
             testo_con_ombra(self.finestra, assets.FONT["dungeon_70"], "VITTORIA!",
                             (LUNGHEZZA // 2, ALTEZZA // 2 - 60), (250, 210, 60), ancora="center")
         self.hud.draw()
+        if self.stato == "gioco":
+            self.touch.draw(self.finestra)
 
 
-def main():
+async def main():
     pygame.init()
     try:
         pygame.display.set_icon(pygame.image.load(percorso("logo.ico")))
     except pygame.error:
         pass
-    finestra = pygame.display.set_mode((LUNGHEZZA, ALTEZZA), pygame.SCALED)
+    # nel browser è la pagina a ridimensionare il canvas, su pc SCALED permette lo schermo intero
+    finestra = pygame.display.set_mode((LUNGHEZZA, ALTEZZA), 0 if WEB else pygame.SCALED)
     pygame.display.set_caption(TITOLO)
 
     # carica gli assets (dopo aver creato la finestra, per poter usare convert_alpha)
@@ -228,9 +248,10 @@ def main():
         run = gioco.step(pygame.event.get())
         pygame.display.flip()
         clock.tick(FPS)
+        await asyncio.sleep(0)  # necessario per girare nel browser (pygbag)
 
     pygame.quit()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

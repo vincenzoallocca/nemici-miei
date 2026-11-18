@@ -29,15 +29,15 @@ class Giocatore(Entita):
     def vivo(self):
         return self.vita > 0
 
-    def update(self, occupati=()):
+    def update(self, occupati=(), passo_touch=None):
         if self.in_movimento:
             self.aggiorna_movimento()
         else:
-            self.gestisci_input(occupati)
+            self.gestisci_input(occupati, passo_touch)
         if self.attaccato_timer > 0:
             self.attaccato_timer -= 1
 
-    def gestisci_input(self, occupati=()):
+    def gestisci_input(self, occupati=(), passo_touch=None):
         keys = pygame.key.get_pressed()
         dx = dy = 0
         direzione = None
@@ -53,10 +53,25 @@ class Giocatore(Entita):
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
             dy += 1
             direzione = "down"
+        if not (dx or dy) and passo_touch:
+            # joystick del telefono
+            dx, dy = passo_touch
+            direzione = self.direzione_passo(dx, dy)
         if direzione:
             self.direction = direzione
         if (dx or dy) and self.muovi_verso(self.tile_x + dx, self.tile_y + dy, occupati):
             self.suono_passo()
+
+    @staticmethod
+    def direzione_passo(dx, dy):
+        """Sprite da usare per un passo: come la tastiera, e per le diagonali la direzione sullo schermo."""
+        if dx == -dy:            # destra/sinistra sullo schermo
+            return "right" if dx > 0 else "left"
+        if dx == dy:             # su/giù sullo schermo
+            return "down" if dx > 0 else "up"
+        if dy:
+            return "down" if dy > 0 else "up"
+        return "right" if dx > 0 else "left"
 
     # riproduce suoni e imposta la velocità in base al tipo di terreno
     def suono_passo(self):

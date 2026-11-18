@@ -80,15 +80,15 @@ def load_assets():
     }
 
     sounds = {
-        "grass": [carica_suono(f, 0.1) for f in ('grass-001.mp3', 'grass fx-002.mp3', 'grass fx-003.mp3', 'grass fx-004.mp3')],
-        "coin": [carica_suono('coin.mp3', 1.0)],
-        "morte": [carica_suono('boss_morte.mp3', 0.5)],
-        "stone": [carica_suono('stone.mp3', 0.1)],
-        "acqua": [carica_suono('acqua.mp3', 0.1)],
-        "attack": [carica_suono(f, 0.4) for f in ('spada fx-001.mp3', 'spada fx-002.mp3', 'spada fx-003.mp3', 'spada_fx-004.mp3')],
-        "player_dmg": [carica_suono('player_dmg.mp3', 0.2)],
-        "bat_morte": [carica_suono('bat_mobile.mp3', 0.5)],
-        "boss_attacco": [carica_suono(f'zombie-00{i}.mp3', 0.4) for i in range(1, 6)],
+        "grass": [carica_suono(f'grass-00{i}.ogg', 0.1) for i in range(1, 5)],
+        "coin": [carica_suono('coin.ogg', 1.0)],
+        "morte": [carica_suono('boss_morte.ogg', 0.5)],
+        "stone": [carica_suono('stone.ogg', 0.1)],
+        "acqua": [carica_suono('acqua.ogg', 0.1)],
+        "attack": [carica_suono(f'spada-00{i}.ogg', 0.4) for i in range(1, 5)],
+        "player_dmg": [carica_suono('player_dmg.ogg', 0.2)],
+        "bat_morte": [carica_suono('bat_mobile.ogg', 0.5)],
+        "boss_attacco": [carica_suono(f'zombie-00{i}.ogg', 0.4) for i in range(1, 6)],
     }
 
     FONT = {
@@ -103,7 +103,7 @@ def load_assets():
 
     ICONE = {
         "vita": pygame.transform.scale(carica_img('[ITEMS]', 'health.png'), (32, 32)),
-        "moneta": pygame.transform.scale(carica_img('[ITEMS]', 'coin.gif'), (32, 32)),
+        "moneta": pygame.transform.scale(carica_img('[ITEMS]', 'coin.png'), (32, 32)),
     }
 
     NPC_IMAGES = {

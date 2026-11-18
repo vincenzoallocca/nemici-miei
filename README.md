@@ -4,6 +4,10 @@
 
 Un piccolo gioco d'avventura in vista isometrica fatto con Pygame: parla con Ugo, bevi alla fontanella, attraversa il portale e sconfiggi il boss.
 
+<h2>🎮 Gioca online</h2>
+
+**[Gioca nel browser](https://vincenzoallocca.github.io/nemici-miei/)**: funziona anche da telefono (meglio in orizzontale), con joystick e pulsanti sullo schermo.
+
 <h2>🚀 Demo</h2>
 
 [https://streamable.com/46ll9t](https://streamable.com/46ll9t)
@@ -28,6 +32,8 @@ Un piccolo gioco d'avventura in vista isometrica fatto con Pygame: parla con Ugo
 | ESC / P | Pausa |
 | F11 | Schermo intero |
 
+Da telefono: trascina il dito nella metà sinistra dello schermo per muoverti (joystick), usa **ATK** per attaccare, **E** per interagire e **II** per la pausa.
+
 <h2>🛠️ Installazione</h2>
 
 1. Clona il repository (o scarica lo zip ed estrailo):
@@ -49,6 +55,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
+<h2>🌐 Versione web</h2>
+
+La versione per browser è compilata con [pygbag](https://pypi.org/project/pygbag/) e pubblicata su GitHub Pages a ogni push su `main` (workflow `.github/workflows/pages.yml`). Per provarla in locale:
+
+```
+pip install pygbag
+python -m pygbag --title "Nemici Miei" --width 960 --height 720 --app_name nemici-miei --template web.tmpl .
+```
+
+e apri http://localhost:8000.
+
 <h2>🧪 Test</h2>
 
 I test simulano una partita completa senza aprire la finestra:
@@ -68,6 +85,8 @@ python -m unittest discover -s tests -v
 | `entita.py` | Movimento e animazione comuni a giocatore e nemici |
 | `player.py`, `enemy.py`, `boss.py`, `npc.py`, `portal.py` | Personaggi e oggetti |
 | `hud.py`, `menu.py`, `riprova.py`, `win.py`, `effetti.py` | Interfaccia ed effetti |
+| `touch.py` | Joystick e pulsanti sullo schermo per giocare da telefono |
+| `web.tmpl`, `pygbag.ini` | Pagina HTML e configurazione della versione web |
 | `tools/genera_eroe.py` | Disegna gli sprite pixel-art dell'eroe in `assets/[EROE]` (modifica le griglie e rilancialo) |
 
 <h2>🛡️ Licenza</h2>
