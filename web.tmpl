@@ -137,6 +137,10 @@ asyncio.run( custom_site() )
     {% endif %}
 
 --><script type="application/javascript">
+// pygbag non gestisce devicePixelRatio diverso da 1 (schermi con zoom, telefoni):
+// il gioco verrebbe disegnato ingrandito e tagliato. Lo forziamo a 1 e lasciamo
+// che sia il CSS a scalare il canvas (con image-rendering: pixelated resta nitido).
+try { Object.defineProperty(window, "devicePixelRatio", { get: function () { return 1 }, configurable: true }) } catch (e) {}
 // END BLOCK
 
 
@@ -147,7 +151,7 @@ config = {
     xtermjs : "{{cookiecutter.xtermjs}}" ,
     _sdl2 : "canvas",
     user_canvas : 0,
-    user_canvas_managed : 0,
+    user_canvas_managed : 1,  // dimensioni e posizione del canvas le decide il CSS di questa pagina
     gui_divider : 2,
     ume_block : {{cookiecutter.ume_block}},
     can_close : {{cookiecutter.can_close}},
@@ -256,6 +260,7 @@ function show_infobox() {
             height: min(100vh, calc(100vw * 3 / 4)) !important;
             margin: auto !important;
             touch-action: none;
+            image-rendering: pixelated;
         }
 
         #ruota {

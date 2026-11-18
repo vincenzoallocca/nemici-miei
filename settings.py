@@ -13,6 +13,22 @@ def percorso(*parti):
 # True quando il gioco gira nel browser (pygbag / WebAssembly)
 WEB = sys.platform == "emscripten"
 
+
+
+def dispositivo_touch():
+    """True se il gioco gira nel browser di un telefono/tablet (schermo touch come puntatore principale)."""
+    if not WEB:
+        return False
+    try:
+        import platform  # nel browser è il modulo di pygbag che dà accesso a window
+        return bool(platform.window.matchMedia("(pointer: coarse)").matches)
+    except Exception:
+        return False
+
+
+# tasto pausa mostrato nelle scritte (nel browser ESC è spesso intercettato dalla pagina)
+TASTO_PAUSA = "P" if WEB else "ESC"
+
 # finestra
 LUNGHEZZA = 960
 ALTEZZA = 720

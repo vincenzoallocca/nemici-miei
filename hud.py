@@ -1,6 +1,6 @@
 import pygame
 import assets
-from settings import ALTEZZA, LUNGHEZZA, HUD_HEIGHT, GRIGIO, BIANCO, ROSSO, GIALLO, VERDE, ROSSO_SCURO
+from settings import TASTO_PAUSA, ALTEZZA, LUNGHEZZA, HUD_HEIGHT, GRIGIO, BIANCO, ROSSO, GIALLO, VERDE, ROSSO_SCURO
 
 
 def dividi_testo(testo, font, larghezza_max):
@@ -51,6 +51,34 @@ class HUD:
         self.dialogue_index = 0
         self.giaparlato = False
         self.touch = False   # con i comandi touch il pulsante pausa sostituisce la scritta "ESC"
+        self.messaggio = None
+        self.messaggio_timer = 0
+
+    def mostra_messaggio(self, testo, secondi=5):
+        """Suggerimento temporaneo in alto a sinistra dello schermo."""
+        self.messaggio = testo
+        self.messaggio_timer = int(secondi * 60)
+
+    def disegna_messaggio(self):
+        if not self.messaggio or self.messaggio_timer <= 0:
+            return
+        self.messaggio_timer -= 1
+        righe = dividi_testo(self.messaggio, self.font2, 420)
+        altezza = len(righe) * 30 + 16
+        box = pygame.Surface((450, altezza), pygame.SRCALPHA)
+        # dissolvenza nell'ultimo mezzo secondo
+        alpha = min(1.0, self.messaggio_timer / 30)
+        box.fill((0, 0, 0, int(170 * alpha)))
+        pygame.draw.rect(box, (250, 210, 60, int(255 * alpha)), box.get_rect(), 2, border_radius=8)
+        # in alto a sinistra, sotto l'obiettivo: non copre il punto di partenza dell'eroe
+        rect = box.get_rect(topleft=(12, 46))
+        self.finestra.blit(box, rect)
+        y = rect.y + 10
+        for riga in righe:
+            img = self.font2.render(riga, True, BIANCO)
+            img.set_alpha(int(255 * alpha))
+            self.finestra.blit(img, (rect.x + 14, y))
+            y += 30
 
     # ---------- dialogo con l'npc ----------
     def interagisci_npc(self):
@@ -121,7 +149,9 @@ class HUD:
         # obiettivo in alto a sinistra e comandi in alto a destra
         testo_con_ombra(self.finestra, self.font2, f"Obiettivo: {self.obiettivo()}", (16, 12), GIALLO)
         if not self.touch:
-            testo_con_ombra(self.finestra, self.font_piccolo, "ESC  pausa", (LUNGHEZZA - 16, 14), ancora="topright")
+            testo_con_ombra(self.finestra, self.font_piccolo, f"{TASTO_PAUSA}  pausa", (LUNGHEZZA - 16, 14), ancora="topright")
+
+        self.disegna_messaggio()
 
         # "!" sopra l'npc finché non ci si parla
         if self.mondo.livello_id == 1 and not self.giaparlato and not self.npc.parlando:

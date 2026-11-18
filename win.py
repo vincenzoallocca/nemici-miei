@@ -56,7 +56,7 @@ class Win:
         pygame.draw.rect(self.finestra, (0, 0, 0), (0, 0, LUNGHEZZA, 90))
         testo_con_ombra(self.finestra, self.font2, "Crediti", (LUNGHEZZA // 2, 45), ROSSO, ancora="center")
         if self.finito:
-            testo_con_ombra(self.finestra, assets.FONT["arcade_22"], "Premi INVIO per tornare al menu",
+            testo_con_ombra(self.finestra, assets.FONT["arcade_22"], "Premi INVIO o tocca lo schermo per tornare al menu",
                             (LUNGHEZZA // 2, ALTEZZA - 40), ancora="center")
 
     def handle_events(self, events):
@@ -64,6 +64,6 @@ class Win:
         for e in events:
             if e.type == pygame.KEYDOWN and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 return "menu"
-            if e.type == pygame.MOUSEBUTTONDOWN and self.finito:
+            if e.type in (pygame.MOUSEBUTTONUP, pygame.FINGERUP) and self.finito:
                 return "menu"
         return None

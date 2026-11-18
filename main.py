@@ -2,7 +2,8 @@ import asyncio
 import random
 import pygame
 import assets
-from settings import LUNGHEZZA, ALTEZZA, FPS, TITOLO, WEB, percorso
+import math
+from settings import LUNGHEZZA, ALTEZZA, FPS, TITOLO, WEB, TASTO_PAUSA, percorso, dispositivo_touch
 from world import Mondo
 from player import Giocatore
 from hud import HUD, testo_con_ombra
@@ -22,6 +23,7 @@ POSIZIONE_NPC = (8, 8)
 POSIZIONE_PORTALE = (8, 0)
 SPAWN_BOSS = (0, 0)
 FRAME_PRIMA_DEI_CREDITI = 120
+FRAME_DI_TREGUA = 180   # all'inizio i pipistrelli aspettano 3 secondi: il tempo di leggere il suggerimento
 
 
 class Gioco:
@@ -35,13 +37,25 @@ class Gioco:
         self.win = None
         self.canzone = None
         self.touch = ControlliTouch()
+        self.volume_musica = 0.3
+        if dispositivo_touch():
+            self.touch.attivo = self.menu.touch = True
         self.vai_al_menu()
 
     # ---------- utilità ----------
     def cambia_musica(self, nome, volume):
         if nome != self.canzone:
             self.canzone = nome
+            self.volume_musica = volume
             assets.suona_musica(nome, volume)
+
+    def cambia_audio(self):
+        assets.imposta_audio(not assets.audio_attivo, self.volume_musica)
+        self.schermata_pausa.aggiorna_audio(assets.audio_attivo)
+
+    @property
+    def comando_attacco(self):
+        return "ATK" if self.touch.attivo else "Click o Spazio"
 
     def vai_al_menu(self):
         self.stato = "menu"
@@ -60,7 +74,12 @@ class Gioco:
         self.hud = HUD(f, self.player, self.npc, self.boss, self.mondo)
         self.hud.touch = self.touch.attivo
         self.touch.reset()
+        if self.touch.attivo:
+            self.hud.mostra_messaggio("Trascina il dito a sinistra per muoverti. Raggiungi Ugo, il mago con il punto esclamativo.", 7)
+        else:
+            self.hud.mostra_messaggio("Muoviti con WASD o le frecce. Raggiungi Ugo, il mago con il punto esclamativo.", 7)
         self.timer_vittoria = 0
+        self.tregua = FRAME_DI_TREGUA
         self.stato = "gioco"
         self.cambia_musica("soundtrack.ogg", 0.2)
 
@@ -79,7 +98,9 @@ class Gioco:
         self.bats = []
         self.boss = Boss(*SPAWN_BOSS, self.mondo, self.finestra, self.player, self.effetti)
         self.hud.boss = self.boss
+        self.tregua = FRAME_DI_TREGUA
         self.effetti.testo("LIVELLO 2", LUNGHEZZA // 2, ALTEZZA // 2 - 120, (255, 80, 80))
+        self.hud.mostra_messaggio(f"Sconfiggi il boss! Attacca con {self.comando_attacco} e allontanati quando trema.", 7)
         self.cambia_musica("boss_soundtrack.ogg", 0.6)
 
     def nemici_vivi(self):
@@ -92,6 +113,11 @@ class Gioco:
         for e in events:
             if e.type == pygame.QUIT:
                 return False
+            if e.type == pygame.FINGERDOWN:
+                # primo tocco: mostra i comandi touch anche nel menu
+                self.touch.attivo = self.menu.touch = True
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_m and self.stato in ("gioco", "pausa", "menu"):
+                self.cambia_audio()
             if e.type == pygame.KEYDOWN and e.key == pygame.K_F11 and not WEB:
                 pygame.display.toggle_fullscreen()
 
@@ -109,16 +135,20 @@ class Gioco:
             self.disegna_gioco()
 
         elif self.stato == "pausa":
+            self.schermata_pausa.sottotitolo = "" if self.touch.attivo else f"{TASTO_PAUSA} per riprendere, M per l'audio"
             self.disegna_gioco(aggiorna_animazioni=False)
             self.schermata_pausa.draw()
             scelta = self.schermata_pausa.handle_events(events)
             esc = any(e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p) for e in events)
-            if scelta == "riprendi" or esc:
+            if scelta == "audio":
+                self.cambia_audio()
+            elif scelta == "riprendi" or esc:
                 self.stato = "gioco"
             elif scelta == "menu":
                 self.vai_al_menu()
 
         elif self.stato == "morto":
+            self.schermata_morte.sottotitolo = "" if self.touch.attivo else "Premi R per riprovare"
             self.disegna_gioco(aggiorna_animazioni=False)
             self.schermata_morte.draw()
             scelta = self.schermata_morte.handle_events(events)
@@ -167,10 +197,13 @@ class Gioco:
         tiles_nemici = {(n.tile_x, n.tile_y) for n in nemici}
         if self.player.vivo:
             self.player.update(tiles_nemici, self.touch.passo())
-        for n in nemici:
-            occupati = {(self.player.tile_x, self.player.tile_y)} | {
-                (m.tile_x, m.tile_y) for m in nemici if m is not n}
-            n.update(occupati)
+        if self.tregua > 0:
+            self.tregua -= 1
+        else:
+            for n in nemici:
+                occupati = {(self.player.tile_x, self.player.tile_y)} | {
+                    (m.tile_x, m.tile_y) for m in nemici if m is not n}
+                n.update(occupati)
 
         if self.mondo.livello_id == 1:
             self.portale.update()
@@ -178,6 +211,7 @@ class Gioco:
                 self.entra_livello_2()
 
         if not self.player.vivo:
+            self.schermata_morte.nuovo_consiglio()
             self.stato = "morto"
         elif self.boss is not None and not self.boss.vivo:
             # piccola pausa per godersi la vittoria prima dei crediti
@@ -191,8 +225,11 @@ class Gioco:
             return
         if self.player.is_near_npc(self.npc) and not self.hud.giaparlato:
             self.hud.interagisci_npc()
+            if self.hud.giaparlato:
+                self.hud.mostra_messaggio("Vai alla fontanella e premi E per bere.", 5)
         elif self.player.puo_bere(self.hud.giaparlato):
             self.player.bevi()
+            self.hud.mostra_messaggio("Il portale si e' aperto! Raggiungilo seguendo la freccia.", 6)
 
     # ---------- disegno ----------
     def disegna_gioco(self, aggiorna_animazioni=True):
@@ -216,6 +253,7 @@ class Gioco:
         for _, disegna in sorted(disegnabili, key=lambda d: d[0]):
             disegna()
 
+        self.disegna_freccia_obiettivo()
         if aggiorna_animazioni:
             self.effetti.update(self.finestra)
         if self.boss is not None and not self.boss.vivo:
@@ -224,6 +262,20 @@ class Gioco:
         self.hud.draw()
         if self.stato == "gioco":
             self.touch.draw(self.finestra)
+
+    def disegna_freccia_obiettivo(self):
+        """Freccia gialla che rimbalza sopra il prossimo obiettivo (fontanella o portale)."""
+        if self.mondo.livello_id != 1 or not self.hud.giaparlato:
+            return
+        if self.player.thirsty:
+            _, rect = self.mondo.lista_fontanelle[0]
+            x, y = rect.centerx, rect.top + 6
+        else:
+            x, y = self.portale.rect.centerx, self.portale.rect.top
+        y -= 14 + int(abs(math.sin(pygame.time.get_ticks() / 250)) * 10)
+        punta = [(x, y), (x - 13, y - 16), (x - 5, y - 16), (x - 5, y - 30), (x + 5, y - 30), (x + 5, y - 16), (x + 13, y - 16)]
+        pygame.draw.polygon(self.finestra, (250, 210, 60), punta)
+        pygame.draw.polygon(self.finestra, (0, 0, 0), punta, 2)
 
 
 async def main():

@@ -14,6 +14,7 @@ DIREZIONI = ("down", "up", "left", "right")
 CARTELLE_DIREZIONI = {"down": "[DOWN]", "up": "[UP]", "left": "[LEFT]", "right": "[RIGHT]"}
 
 sounds = {}
+audio_attivo = True   # si può spegnere dal menu di pausa o con il tasto M
 
 
 def carica_img(*parti):
@@ -52,7 +53,7 @@ def carica_suono(nome, volume):
 def suona(nome, **kwargs):
     """Riproduce un effetto sonoro, scegliendo a caso tra le varianti disponibili."""
     varianti = [s for s in sounds.get(nome, []) if s is not None]
-    if varianti:
+    if varianti and audio_attivo:
         random.choice(varianti).play(**kwargs)
 
 
@@ -62,10 +63,18 @@ def suona_musica(nome, volume):
         return
     try:
         mixer.music.load(percorso("audio", nome))
-        mixer.music.set_volume(volume)
+        mixer.music.set_volume(volume if audio_attivo else 0)
         mixer.music.play(-1)
     except pygame.error:
         pass
+
+
+def imposta_audio(attivo, volume_musica):
+    """Accende o spegne tutto l'audio (effetti e musica)."""
+    global audio_attivo
+    audio_attivo = attivo
+    if mixer.get_init() is not None:
+        mixer.music.set_volume(volume_musica if attivo else 0)
 
 
 # funzione per caricare tutti gli assets (va chiamata dopo pygame.display.set_mode)

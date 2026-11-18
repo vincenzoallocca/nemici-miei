@@ -34,6 +34,14 @@ class Overlay:
         return None
 
 
+CONSIGLI = [
+    "Consiglio: colpisci i pipistrelli appena ti arrivano accanto",
+    "Consiglio: bere alla fontanella ti cura",
+    "Consiglio: quando il boss trema, allontanati di un passo",
+    "Consiglio: Ugo ti regala un po' di vita se ci parli",
+]
+
+
 class Try(Overlay):
     """Schermata di game over."""
 
@@ -42,6 +50,15 @@ class Try(Overlay):
             "riprova": Bottone("RIPROVA", (LUNGHEZZA // 2, ALTEZZA // 2 + 20)),
             "menu": Bottone("MENU", (LUNGHEZZA // 2, ALTEZZA // 2 + 90)),
         }, "Premi R per riprovare")
+        self.consiglio = 0
+
+    def nuovo_consiglio(self):
+        self.consiglio = (self.consiglio + 1) % len(CONSIGLI)
+
+    def draw(self):
+        super().draw()
+        testo_con_ombra(self.finestra, assets.FONT["arcade_22"], CONSIGLI[self.consiglio],
+                        (LUNGHEZZA // 2, ALTEZZA // 2 + 160), (250, 210, 60), ancora="center")
 
     def handle_events(self, events):
         if any(e.type == pygame.KEYDOWN and e.key in (pygame.K_r, pygame.K_RETURN) for e in events):
@@ -52,6 +69,10 @@ class Try(Overlay):
 class Pausa(Overlay):
     def __init__(self, finestra):
         super().__init__(finestra, "Pausa", {
-            "riprendi": Bottone("RIPRENDI", (LUNGHEZZA // 2, ALTEZZA // 2 + 20)),
-            "menu": Bottone("MENU", (LUNGHEZZA // 2, ALTEZZA // 2 + 90)),
-        }, "Premi ESC per riprendere")
+            "riprendi": Bottone("RIPRENDI", (LUNGHEZZA // 2, ALTEZZA // 2 - 10), 260),
+            "audio": Bottone("AUDIO: SI", (LUNGHEZZA // 2, ALTEZZA // 2 + 55), 260),
+            "menu": Bottone("MENU", (LUNGHEZZA // 2, ALTEZZA // 2 + 120), 260),
+        }, "")
+
+    def aggiorna_audio(self, attivo):
+        self.bottoni["audio"].testo = "AUDIO: SI" if attivo else "AUDIO: NO"

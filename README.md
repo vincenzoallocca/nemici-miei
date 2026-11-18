@@ -29,10 +29,13 @@ Un piccolo gioco d'avventura in vista isometrica fatto con Pygame: parla con Ugo
 | WASD / Frecce | Muoversi (due tasti insieme per muoversi in orizzontale/verticale sullo schermo) |
 | Click sinistro / Spazio | Attaccare |
 | E | Parlare / interagire |
-| ESC / P | Pausa |
-| F11 | Schermo intero |
+| ESC / P | Pausa (nel browser usa P) |
+| M | Audio sì/no |
+| F11 | Schermo intero (solo PC) |
 
-Da telefono: trascina il dito nella metà sinistra dello schermo per muoverti (joystick), usa **ATK** per attaccare, **E** per interagire e **II** per la pausa.
+Da telefono: trascina il dito nella metà sinistra dello schermo per muoverti (joystick), usa **ATK** per attaccare, **E** per interagire e **II** per la pausa (dove c'è anche il pulsante dell'audio).
+
+In gioco l'obiettivo del momento è sempre in alto a sinistra, una freccia gialla indica dove andare e all'inizio di ogni livello hai qualche secondo di tregua per leggere i suggerimenti.
 
 <h2>🛠️ Installazione</h2>
 

@@ -99,8 +99,9 @@ class TestPartita(unittest.TestCase):
         self.assertEqual(g.mondo.livello_id, 2)
         self.assertIsNotNone(g.boss)
 
-        # combatte col boss
+        # combatte col boss (saltando i secondi di tregua iniziali)
         boss = g.boss
+        g.tregua = 0
         for _ in range(20):
             if not boss.vivo:
                 break
@@ -121,6 +122,7 @@ class TestPartita(unittest.TestCase):
         g = self.gioco
         g.player.take_damage(1000)
         self.frames(1)
+        self.assertGreater(g.tregua, 0, "all'inizio della partita c'è una tregua")
         self.assertEqual(g.stato, "morto")
         self.frames(1, [tasto(pygame.K_r)])
         self.assertEqual(g.stato, "gioco")
@@ -166,6 +168,27 @@ class TestPartita(unittest.TestCase):
         self.assertEqual(self.gioco.stato, "pausa")
         self.frames(1, [tasto(pygame.K_ESCAPE)])
         self.assertEqual(self.gioco.stato, "gioco")
+
+    def test_pulsanti_e_audio(self):
+        g = self.gioco
+        start = g.menu.bottone_start.rect.center
+        giu = lambda pos: pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=pos)
+        su = lambda pos: pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=pos)
+        # basta anche solo il "rilascia" (nel browser il "premi" a volte si perde)
+        self.frames(1, [su(start)])
+        self.assertEqual(g.stato, "gioco")
+        self.assertIsNotNone(g.hud.messaggio, "all'inizio deve comparire un suggerimento")
+
+        # M spegne e riaccende l'audio, anche dal pulsante della pausa
+        self.frames(1, [tasto(pygame.K_m)])
+        self.assertFalse(assets.audio_attivo)
+        self.frames(1, [tasto(pygame.K_ESCAPE)])
+        audio = g.schermata_pausa.bottoni["audio"].rect.center
+        # un click completo (premi + rilascia) cambia l'audio una volta sola
+        self.frames(1, [giu(audio)])
+        self.frames(1, [su(audio)])
+        self.assertTrue(assets.audio_attivo)
+        self.assertEqual(g.stato, "pausa")
 
     def test_pipistrelli_attaccano_e_muoiono(self):
         self.inizia()
