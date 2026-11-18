@@ -68,6 +68,7 @@ python -m unittest discover -s tests -v
 | `entita.py` | Movimento e animazione comuni a giocatore e nemici |
 | `player.py`, `enemy.py`, `boss.py`, `npc.py`, `portal.py` | Personaggi e oggetti |
 | `hud.py`, `menu.py`, `riprova.py`, `win.py`, `effetti.py` | Interfaccia ed effetti |
+| `tools/genera_eroe.py` | Disegna gli sprite pixel-art dell'eroe in `assets/[EROE]` (modifica le griglie e rilancialo) |
 
 <h2>🛡️ Licenza</h2>
 

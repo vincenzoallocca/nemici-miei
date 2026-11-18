@@ -4,7 +4,7 @@ from pygame import mixer
 from settings import LUNGHEZZA, ALTEZZA, GRANDEZZA_TILES, percorso
 
 # fattori di scala degli sprite (mantengono le proporzioni originali)
-SCALA_PLAYER = 0.9
+SCALA_PLAYER = 2  # sprite dell'eroe 20x26 -> 40x52
 SCALA_BAT = 1.5
 SCALA_BOSS = 2.0
 SCALA_BOSS_FURIA = 2.6
@@ -139,8 +139,8 @@ def load_assets():
     dim_portale = (int(GRANDEZZA_TILES * 0.75), int(GRANDEZZA_TILES * 0.75))
     PORTAL_FRAMES = [pygame.transform.scale(carica_img('[PORTALE]', f'portal{i}.png'), dim_portale) for i in range(1, 7)]
 
-    PLAYER_FRAMES = carica_animazione(('[PERSONAGGIO]', '[MOVEMENT]'), [f'walk{{d}}{i}.png' for i in range(1, 5)], SCALA_PLAYER)
-    PLAYER_IDLE = carica_animazione(('[PERSONAGGIO]', '[IDLE]'), [f'idle{i}.png' for i in range(1, 5)], SCALA_PLAYER)
+    PLAYER_FRAMES = carica_animazione(('[EROE]', '[MOVEMENT]'), [f'walk{{d}}{i}.png' for i in range(1, 5)], SCALA_PLAYER)
+    PLAYER_IDLE = carica_animazione(('[EROE]', '[IDLE]'), [f'idle{i}.png' for i in range(1, 5)], SCALA_PLAYER)
     ENEMY_FRAMES = carica_animazione(('[MOBS]', '[BAT]'), [f'{i}.png' for i in range(1, 4)], SCALA_BAT)
     BOSS_FRAMES = carica_animazione(('[MOBS]', '[BOSS]'), [f'{i}.png' for i in range(1, 5)], SCALA_BOSS)
     BOSS_FRAMES_FURIA = carica_animazione(('[MOBS]', '[BOSS]'), [f'{i}.png' for i in range(1, 5)], SCALA_BOSS_FURIA)
