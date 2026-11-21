@@ -1,4 +1,4 @@
-# Compila il gioco per il browser con pygbag (WebAssembly) e lo pubblica su GitHub Pages:
+# Compila il gioco in WebAssembly (macroquad) e lo pubblica su GitHub Pages:
 # https://vincenzoallocca.github.io/nemici-miei/
 name: Pubblica il gioco nel browser
 
@@ -21,16 +21,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          python-version: "3.12"
-      - run: pip install pygbag==0.9.3
-      - name: Build web (pygbag)
-        run: python -m pygbag --build --title "Nemici Miei" --width 960 --height 720 --app_name nemici-miei --template web.tmpl .
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Build web (wasm32)
+        run: cargo build --locked --release --target wasm32-unknown-unknown
+      - name: Prepara la cartella del sito
+        run: |
+          mkdir -p dist
+          cp web/index.html dist/
+          cp target/wasm32-unknown-unknown/release/nemici-miei.wasm dist/
+          cp -r assets dist/
+          curl -fsSL -o dist/mq_js_bundle.js https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: build/web
+          path: dist
 
   deploy:
     needs: build

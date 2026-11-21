@@ -1,0 +1,27 @@
+[package]
+name = "nemici-miei"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rock A' Raso GAME LLC"]
+description = "Nemici Miei - Isometric adventure game rewritten in high-performance Rust"
+
+[lib]
+name = "nemici_miei"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nemici-miei"
+path = "src/main.rs"
+
+[dependencies]
+macroquad = { version = "0.4.16", features = ["audio"] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

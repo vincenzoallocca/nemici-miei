@@ -1,0 +1,4 @@
+# quad-snd (audio di macroquad) dichiara le funzioni JS dell'audio come simboli esterni:
+# le versioni recenti di Rust non li accettano più in automatico su wasm32.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--allow-undefined"]
