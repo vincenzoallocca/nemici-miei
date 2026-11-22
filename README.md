@@ -94,7 +94,7 @@ I test controllano la logica di gioco senza aprire la finestra, compresa una par
 cargo test
 ```
 
-Per lo sviluppo c'è anche una modalità screenshot: `NEMICI_LIVELLO=3 NEMICI_SCREENSHOT=foto.png cargo run` avvia il livello 3, salva uno screenshot dopo 90 frame ed esce.
+Per lo sviluppo c'è anche una modalità screenshot: `NEMICI_LIVELLO=3 NEMICI_SCREENSHOT=foto.png cargo run` avvia il livello 3, salva uno screenshot dopo 90 frame ed esce. Con `NEMICI_POSIZIONE=8,7` l'eroe parte da quel tile e con `NEMICI_FINESTRA=1440x1080` la finestra è più grande.
 
 <h2>📁 Struttura</h2>
 

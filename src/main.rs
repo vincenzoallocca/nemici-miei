@@ -6,10 +6,18 @@ use nemici_miei::input::{Input, WEB};
 use nemici_miei::settings::{imposta_scala_testo, ALTEZZA, DT, LUNGHEZZA, TITOLO};
 
 fn window_conf() -> Conf {
+    // solo per lo sviluppo: NEMICI_FINESTRA=1440x1080 per screenshot più grandi
+    let (w, h) = std::env::var("NEMICI_FINESTRA")
+        .ok()
+        .and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        })
+        .unwrap_or((LUNGHEZZA as i32, ALTEZZA as i32));
     Conf {
         window_title: TITOLO.to_string(),
-        window_width: LUNGHEZZA as i32,
-        window_height: ALTEZZA as i32,
+        window_width: w,
+        window_height: h,
         window_resizable: true,
         high_dpi: true,
         ..Default::default()
@@ -114,6 +122,7 @@ async fn main() {
 
 /// Solo per lo sviluppo (desktop): `NEMICI_LIVELLO=3 NEMICI_SCREENSHOT=foto.png` avvia
 /// direttamente il livello 3, salva uno screenshot dopo `NEMICI_FRAMES` frame (90) ed esce.
+/// `NEMICI_POSIZIONE=8,7` mette l'eroe su quel tile.
 struct Cattura {
     file: String,
     frame: u32,
@@ -128,6 +137,14 @@ impl Cattura {
             gioco.nuova_partita();
             let n = n.clamp(1, nemici_miei::livelli::LIVELLI.len());
             gioco.carica_livello(n - 1);
+            let posizione = std::env::var("NEMICI_POSIZIONE").ok().and_then(|v| {
+                let (x, y) = v.split_once(',')?;
+                Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
+            });
+            if let Some((x, y)) = posizione {
+                gioco.player.entita.piazza(x, y, &gioco.mondo);
+                gioco.player.entita.direction = nemici_miei::assets::Direction::Left;
+            }
         }
         let file = std::env::var("NEMICI_SCREENSHOT").ok()?;
         let frame = std::env::var("NEMICI_FRAMES").ok().and_then(|v| v.parse().ok()).unwrap_or(90);
