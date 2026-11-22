@@ -7,6 +7,7 @@ use nemici_miei::game::{GameState, Gioco};
 use nemici_miei::hud::HUD;
 use nemici_miei::input::{Input, Tasti};
 use nemici_miei::livelli::{Obiettivo, LIVELLI};
+use nemici_miei::pickup::TipoOggetto;
 use nemici_miei::player::Giocatore;
 use nemici_miei::settings::*;
 use nemici_miei::win::Win;
@@ -49,8 +50,13 @@ fn frames(g: &mut Gioco, n: usize) {
 }
 
 /// Cammina fino a distanza `raggio` da `meta`, un passo di logica alla volta.
+/// Si ferma anche se si cambia livello (es. entrando nel portale).
 fn cammina_verso(g: &mut Gioco, meta: (i32, i32), raggio: i32) {
+    let livello = g.livello;
     for _ in 0..3000 {
+        if g.livello != livello || g.stato != GameState::Gioco {
+            return;
+        }
         let pos = g.player.entita.tile();
         if distanza(pos, meta) <= raggio && !g.player.entita.in_movimento() {
             return;
@@ -375,12 +381,28 @@ fn partita_completa() {
                 assert!(g.update(&tasto_e()));
                 assert!(!g.player.thirsty);
             }
-            Obiettivo::SconfiggiPipistrelli | Obiettivo::RaccogliMonete => {
+            Obiettivo::SconfiggiPipistrelli => {
                 // scorciatoia: il test controlla il passaggio di livello, non il combattimento
                 for b in &mut g.bats {
                     b.hp = 0;
                 }
                 frames(&mut g, 1);
+            }
+            Obiettivo::RaccogliMonete => {
+                for b in &mut g.bats {
+                    b.hp = 0;
+                }
+                assert_eq!(g.monete_rimaste(), def.monete);
+                let monete_prima = g.player.monete;
+                while let Some(m) = g
+                    .oggetti
+                    .iter()
+                    .find(|o| o.tipo == TipoOggetto::Moneta && !o.preso)
+                    .map(|o| o.tile())
+                {
+                    cammina_verso(&mut g, m, 0);
+                }
+                assert_eq!(g.player.monete, monete_prima + def.monete as i32);
             }
             Obiettivo::SconfiggiBoss => {
                 let boss_pos = g.boss.as_ref().unwrap().entita.tile();
@@ -405,7 +427,6 @@ fn partita_completa() {
         assert!(g.portale.as_ref().unwrap().aperto, "{}: portale aperto", g.def().nome);
         let prima = g.livello;
         cammina_verso(&mut g, portale, 0);
-        frames(&mut g, 1);
         assert_eq!(g.livello, prima + 1, "il portale porta al livello dopo");
         livelli_visti.push(g.livello);
         frames(&mut g, FRAME_DI_TREGUA as usize);
@@ -416,4 +437,48 @@ fn partita_completa() {
     assert!(g.win.is_some());
     assert!(g.update(&invio()));
     assert_eq!(g.stato, GameState::Menu);
+}
+
+#[test]
+fn oggetti_raggiungibili_e_cuori_solo_se_feriti() {
+    let mut g = nuova_partita();
+    for (i, def) in LIVELLI.iter().enumerate() {
+        g.carica_livello(i);
+        let monete = g.oggetti.iter().filter(|o| o.tipo == TipoOggetto::Moneta).count();
+        let cuori = g.oggetti.iter().filter(|o| o.tipo == TipoOggetto::Cuore).count();
+        assert_eq!((monete, cuori), (def.monete, def.cuori), "{}", def.nome);
+        for o in &g.oggetti {
+            assert!(g.mondo.is_tile_walkable(o.tile_x, o.tile_y));
+            assert!(g.mondo.passo_verso(def.spawn, o.tile(), 0, &[]).is_some(), "{}: oggetto irraggiungibile", def.nome);
+        }
+    }
+
+    let indice = LIVELLI.iter().position(|d| d.cuori > 0).expect("un livello con cuori");
+    g.carica_livello(indice);
+    for b in &mut g.bats {
+        b.hp = 0;
+    }
+    let cuore = g.oggetti.iter().find(|o| o.tipo == TipoOggetto::Cuore).unwrap().tile();
+    // a vita piena il cuore resta a terra
+    cammina_verso(&mut g, cuore, 0);
+    assert!(!g.oggetti.iter().find(|o| o.tile() == cuore).unwrap().preso);
+    g.player.vita = 50;
+    frames(&mut g, 1);
+    assert!(g.oggetti.iter().find(|o| o.tile() == cuore).unwrap().preso);
+    assert_eq!(g.player.vita, 75);
+}
+
+#[test]
+fn boss_in_furia_chiama_rinforzi() {
+    let mut g = nuova_partita();
+    g.carica_livello(LIVELLI.len() - 1);
+    frames(&mut g, FRAME_DI_TREGUA as usize);
+    assert_eq!(g.pipistrelli_vivi(), 0);
+    let boss = g.boss.as_mut().unwrap();
+    boss.hp = boss.soglia_furia - 1.0;
+    frames(&mut g, 1);
+    assert!(g.boss.as_ref().unwrap().furia);
+    assert_eq!(g.pipistrelli_vivi(), 2);
+    frames(&mut g, 1);
+    assert_eq!(g.pipistrelli_vivi(), 2, "i rinforzi arrivano una volta sola");
 }

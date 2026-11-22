@@ -8,6 +8,8 @@ use crate::input::Input;
 use crate::livelli::{DefLivello, Obiettivo, LIVELLI};
 use crate::menu::{disegna_copertina, Menu, MenuAction};
 use crate::npc::Npc;
+use crate::pickup::{Raccoglibile, TipoOggetto};
+use crate::assets::Suono;
 use crate::overlay::{GameOverAction, PausaAction, SchermataMorte, SchermataPausa};
 use crate::player::Giocatore;
 use crate::portal::Portale;
@@ -47,6 +49,7 @@ pub struct Gioco {
     pub portale: Option<Portale>,
     pub bats: Vec<Enemy>,
     pub boss: Option<Boss>,
+    pub oggetti: Vec<Raccoglibile>,
     pub hud: HUD,
     pub effetti: Effetti,
 
@@ -85,6 +88,7 @@ impl Gioco {
             portale: None,
             bats: Vec::new(),
             boss: None,
+            oggetti: Vec::new(),
             hud: HUD::new(),
             effetti: Effetti::new(),
             timer_vittoria: 0,
@@ -143,6 +147,7 @@ impl Gioco {
         let (min, max) = def.pipistrelli;
         let quanti = if max > min { rand::gen_range(min, max + 1) } else { min };
         self.bats = self.genera_pipistrelli(quanti);
+        self.oggetti = self.genera_oggetti(def.monete, def.cuori);
 
         self.hud = HUD::new();
         self.hud.touch = self.touch.attivo;
@@ -197,6 +202,74 @@ impl Gioco {
             .collect()
     }
 
+    /// Monete e cuori su tile raggiungibili, lontani dallo spawn e non sotto i pipistrelli.
+    pub fn genera_oggetti(&self, monete: usize, cuori: usize) -> Vec<Raccoglibile> {
+        let spawn = self.player.entita.tile();
+        let pipistrelli: Vec<_> = self.bats.iter().map(|b| b.entita.tile()).collect();
+        let mut liberi: Vec<_> = self
+            .tiles_per_nemici()
+            .into_iter()
+            .filter(|t| !pipistrelli.contains(t) && self.mondo.passo_verso(spawn, *t, 0, &[]).is_some())
+            .collect();
+        mescola(&mut liberi);
+        let tipi = std::iter::repeat_n(TipoOggetto::Moneta, monete).chain(std::iter::repeat_n(TipoOggetto::Cuore, cuori));
+        liberi
+            .into_iter()
+            .zip(tipi)
+            .map(|((x, y), tipo)| Raccoglibile::new(tipo, x, y, &self.mondo))
+            .collect()
+    }
+
+    pub fn monete_rimaste(&self) -> usize {
+        self.oggetti
+            .iter()
+            .filter(|o| o.tipo == TipoOggetto::Moneta && !o.preso)
+            .count()
+    }
+
+    fn raccogli_oggetti(&mut self) {
+        let pos = self.player.entita.tile();
+        for o in self.oggetti.iter_mut().filter(|o| !o.preso && o.tile() == pos) {
+            let (x, y) = (o.x, o.y - 30.0);
+            match o.tipo {
+                TipoOggetto::Moneta => {
+                    o.preso = true;
+                    self.player.monete += 1;
+                    self.effetti.suona(Suono::Moneta, 1.0);
+                    self.effetti.add_text("+1 moneta", x, y - 30.0, GIALLO);
+                    self.effetti.scintille(x, y, GIALLO, 14);
+                }
+                // il cuore resta a terra finché non serve
+                TipoOggetto::Cuore if self.player.vita < self.player.vita_max => {
+                    o.preso = true;
+                    self.effetti.suona(Suono::Cuore, 0.8);
+                    self.player.cura(25, &mut self.effetti);
+                    self.effetti.scintille(x, y, Color::from_rgba(240, 70, 90, 255), 14);
+                }
+                TipoOggetto::Cuore => {}
+            }
+        }
+    }
+
+    /// In furia il boss chiama due pipistrelli lontano dal giocatore.
+    fn rinforzi_boss(&mut self) {
+        let giocatore = self.player.entita.tile();
+        let occupati: Vec<_> = self.bats.iter().filter(|b| b.vivo()).map(|b| b.entita.tile()).collect();
+        let mut liberi: Vec<_> = self
+            .tiles_per_nemici()
+            .into_iter()
+            .filter(|&t| distanza(t, giocatore) >= 3 && !occupati.contains(&t))
+            .collect();
+        mescola(&mut liberi);
+        for &(x, y) in liberi.iter().take(2) {
+            let bat = Enemy::con_statistiche(x, y, &self.mondo, 40, 8);
+            self.effetti
+                .scintille(bat.entita.x, bat.entita.y - 30.0, Color::from_rgba(170, 60, 220, 255), 16);
+            self.bats.push(bat);
+        }
+        self.hud.mostra_messaggio("Il boss chiama i suoi pipistrelli!", 4.0);
+    }
+
     // ---------- obiettivi ----------
 
     pub fn pipistrelli_vivi(&self) -> usize {
@@ -207,7 +280,7 @@ impl Gioco {
         match self.def().obiettivo {
             Obiettivo::ParlaEBevi => !self.player.thirsty,
             Obiettivo::SconfiggiPipistrelli => self.pipistrelli_vivi() == 0,
-            Obiettivo::RaccogliMonete => true,
+            Obiettivo::RaccogliMonete => self.monete_rimaste() == 0,
             Obiettivo::SconfiggiBoss => self.boss.as_ref().is_none_or(|b| !b.vivo()),
         }
     }
@@ -225,7 +298,10 @@ impl Gioco {
                 }
             }
             Obiettivo::SconfiggiPipistrelli => format!("Sconfiggi i pipistrelli ({} rimasti)", self.pipistrelli_vivi()),
-            Obiettivo::RaccogliMonete => "Raccogli le monete".to_string(),
+            Obiettivo::RaccogliMonete => {
+                let totale = self.def().monete;
+                format!("Raccogli le monete ({}/{})", totale - self.monete_rimaste(), totale)
+            }
             Obiettivo::SconfiggiBoss => {
                 if self.obiettivo_completato() {
                     "Boss sconfitto!".to_string()
@@ -246,6 +322,15 @@ impl Gioco {
                 let (fx, fy) = self.mondo.trova_fontanella()?;
                 let (x, y) = self.mondo.piedi_tile(fx, fy);
                 Some((x, y - 52.0))
+            }
+            Obiettivo::RaccogliMonete => {
+                // la moneta più vicina
+                let pos = self.player.entita.tile();
+                self.oggetti
+                    .iter()
+                    .filter(|o| o.tipo == TipoOggetto::Moneta && !o.preso)
+                    .min_by_key(|o| distanza(o.tile(), pos))
+                    .map(|o| (o.x, o.y - 50.0))
             }
             _ => None,
         }
@@ -401,6 +486,14 @@ impl Gioco {
                 boss.update(&self.mondo, &mut self.player, &mut self.effetti, &occupati);
             }
         }
+        if self.boss.as_ref().is_some_and(|b| b.appena_infuriato) {
+            self.rinforzi_boss();
+        }
+
+        for o in &mut self.oggetti {
+            o.update();
+        }
+        self.raccogli_oggetti();
         self.tregua = (self.tregua - 1).max(0);
 
         self.hud.update(self.npc.as_mut(), &self.player);
@@ -488,6 +581,7 @@ impl Gioco {
             Npc,
             Portale,
             Bat(usize),
+            Raccoglibile(usize),
             Boss,
             Player,
         }
@@ -501,6 +595,9 @@ impl Gioco {
         }
         for (i, b) in self.bats.iter().enumerate().filter(|(_, b)| b.vivo()) {
             items.push((b.entita.profondita(), Alto::Bat(i)));
+        }
+        for (i, o) in self.oggetti.iter().enumerate().filter(|(_, o)| !o.preso) {
+            items.push((o.profondita(), Alto::Raccoglibile(i)));
         }
         if let Some(b) = self.boss.as_ref().filter(|b| b.vivo()) {
             items.push((b.entita.profondita(), Alto::Boss));
@@ -524,6 +621,7 @@ impl Gioco {
                     }
                 }
                 Alto::Bat(i) => self.bats[i].draw(assets),
+                Alto::Raccoglibile(i) => self.oggetti[i].draw(assets),
                 Alto::Boss => {
                     if let Some(ref b) = self.boss {
                         b.draw(assets);

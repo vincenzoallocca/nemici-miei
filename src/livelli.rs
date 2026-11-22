@@ -63,6 +63,38 @@ const PRATO: &[&[u8]] = &[
     &[3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
 ];
 
+/// Spiaggia: terra battuta lungo il mare, acqua bassa (lenta) e alta (invalicabile), cespugli.
+const SPIAGGIA: &[&[u8]] = &[
+    &[3, 3, 4, 3, 1, 1, 2, 7, 8, 9, 9, 9],
+    &[3, 20, 3, 3, 1, 2, 1, 7, 7, 8, 9, 9],
+    &[4, 3, 24, 3, 3, 1, 1, 2, 7, 8, 8, 9],
+    &[3, 3, 3, 3, 4, 3, 1, 1, 2, 7, 7, 8],
+    &[3, 24, 3, 3, 3, 3, 24, 3, 1, 1, 2, 7],
+    &[3, 3, 3, 4, 3, 3, 3, 3, 3, 1, 1, 2],
+    &[4, 3, 3, 3, 24, 24, 3, 4, 3, 3, 1, 1],
+    &[3, 3, 4, 3, 3, 3, 3, 3, 24, 3, 3, 1],
+    &[7, 8, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3],
+    &[9, 7, 7, 3, 24, 3, 3, 3, 4, 3, 3, 3],
+    &[9, 9, 8, 7, 3, 3, 3, 24, 3, 3, 20, 20],
+    &[9, 9, 9, 8, 7, 3, 3, 3, 3, 3, 20, 20],
+];
+
+/// Rovine: pavimento di pietra, muri di roccia con dei varchi e un giardino al centro.
+const ROVINE: &[&[u8]] = &[
+    &[25, 25, 11, 11, 23, 11, 12, 11, 11, 23, 11, 11],
+    &[25, 25, 11, 12, 23, 11, 11, 11, 12, 23, 11, 12],
+    &[11, 11, 11, 11, 11, 11, 23, 11, 11, 11, 11, 11],
+    &[23, 23, 11, 23, 23, 11, 23, 11, 23, 23, 23, 11],
+    &[11, 12, 11, 11, 11, 11, 11, 11, 11, 12, 11, 11],
+    &[11, 11, 23, 11, 3, 3, 3, 3, 11, 23, 11, 12],
+    &[12, 11, 23, 11, 3, 7, 8, 3, 11, 23, 11, 11],
+    &[11, 11, 11, 11, 3, 3, 4, 3, 11, 11, 11, 11],
+    &[11, 23, 23, 23, 11, 11, 11, 11, 23, 23, 23, 11],
+    &[11, 11, 11, 12, 11, 23, 23, 11, 11, 12, 11, 11],
+    &[23, 11, 12, 11, 11, 11, 11, 11, 11, 11, 25, 25],
+    &[23, 11, 11, 11, 23, 11, 12, 11, 11, 11, 25, 25],
+];
+
 const ARENA: &[&[u8]] = &[
     &[11, 11, 11, 11, 12, 11, 11, 11, 11, 11],
     &[11, 11, 11, 11, 11, 11, 11, 11, 11, 11],
@@ -93,6 +125,40 @@ pub const LIVELLI: &[DefLivello] = &[
         cuori: 0,
         musica: MusicTrack::Soundtrack,
         intro: "Muoviti con WASD o le frecce. Raggiungi Ugo, il mago con il punto esclamativo.",
+    },
+    DefLivello {
+        nome: "La spiaggia",
+        tema: Tema::Spiaggia,
+        mappa: SPIAGGIA,
+        spawn: (1, 1),
+        npc: None,
+        portale: Some((10, 10)),
+        boss: None,
+        obiettivo: Obiettivo::SconfiggiPipistrelli,
+        pipistrelli: (6, 7),
+        vita_pipistrelli: 50,
+        danno_pipistrelli: 10,
+        monete: 0,
+        cuori: 2,
+        musica: MusicTrack::Soundtrack,
+        intro: "Uno stormo di pipistrelli! Sconfiggili tutti con {ATK} per aprire il portale. In acqua sei lento.",
+    },
+    DefLivello {
+        nome: "Le rovine",
+        tema: Tema::Rovine,
+        mappa: ROVINE,
+        spawn: (0, 0),
+        npc: None,
+        portale: Some((11, 11)),
+        boss: None,
+        obiettivo: Obiettivo::RaccogliMonete,
+        pipistrelli: (3, 4),
+        vita_pipistrelli: 60,
+        danno_pipistrelli: 12,
+        monete: 6,
+        cuori: 1,
+        musica: MusicTrack::Soundtrack,
+        intro: "Raccogli tutte le monete tra le rovine per aprire il portale. Usa le rocce per seminare i pipistrelli!",
     },
     DefLivello {
         nome: "L'arena",

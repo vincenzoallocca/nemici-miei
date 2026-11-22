@@ -308,11 +308,17 @@ impl World {
         let dim = Some(vec2(GRANDEZZA_TILES, GRANDEZZA_TILES));
         for t in self.tiles.iter().chain(self.decorazioni.iter()) {
             if let Some(tex) = assets.tile(t.tile_id) {
+                // l'acqua originale è molto chiara: con una tinta più profonda non si confonde col cielo
+                let tinta = if is_tile_acqua(t.tile_id) {
+                    Color::new(0.62, 0.82, 1.0, 1.0)
+                } else {
+                    WHITE
+                };
                 draw_texture_ex(
                     tex,
                     t.x,
                     t.y,
-                    WHITE,
+                    tinta,
                     DrawTextureParams {
                         dest_size: dim,
                         ..Default::default()

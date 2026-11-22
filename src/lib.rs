@@ -15,6 +15,7 @@ pub mod livelli;
 pub mod menu;
 pub mod npc;
 pub mod overlay;
+pub mod pickup;
 pub mod player;
 pub mod portal;
 pub mod settings;
