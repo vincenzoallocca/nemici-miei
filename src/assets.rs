@@ -1,4 +1,5 @@
 use macroquad::audio::{load_sound, play_sound, stop_sound, PlaySoundParams, Sound};
+use crate::sfondo::Sfondi;
 use macroquad::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -247,10 +248,9 @@ pub struct Assets {
     pub arcade_font: Font,
     pub dungeon_font: Font,
 
-    // Backgrounds
-    pub bg1: Texture2D,
-    pub bg2: Texture2D,
+    // Sfondi: copertina del menu e sfondi generati per i livelli
     pub bg3: Texture2D,
+    pub sfondi: Sfondi,
 
     // Tiles, indicizzati per id
     tile_textures: Vec<Option<Texture2D>>,
@@ -302,8 +302,7 @@ impl Assets {
         arcade_font.set_filter(FilterMode::Nearest);
         dungeon_font.set_filter(FilterMode::Nearest);
 
-        let bg1 = load_tex("[SFONDI]/bg.png").await;
-        let bg2 = load_tex("[SFONDI]/bg2.png").await;
+        let sfondi = Sfondi::genera();
         let bg3 = load_tex("[SFONDI]/bg3.png").await;
         bg3.set_filter(FilterMode::Linear);
         c.avanza(1).await;
@@ -353,9 +352,8 @@ impl Assets {
             materiale_flash: crea_materiale_flash(),
             arcade_font,
             dungeon_font,
-            bg1,
-            bg2,
             bg3,
+            sfondi,
             tile_textures,
             icon_vita,
             icon_moneta,

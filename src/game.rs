@@ -6,7 +6,7 @@ use crate::entita::Entita;
 use crate::hud::{testo_con_ombra, Ancora, GIALLO, HUD};
 use crate::input::Input;
 use crate::livelli::{DefLivello, Obiettivo, LIVELLI};
-use crate::menu::{disegna_copertina, Menu, MenuAction};
+use crate::menu::{Menu, MenuAction};
 use crate::npc::Npc;
 use crate::pickup::{Raccoglibile, TipoOggetto};
 use crate::assets::Suono;
@@ -568,11 +568,7 @@ impl Gioco {
     }
 
     pub fn draw_gioco(&self, assets: &Assets) {
-        let sfondo = match self.def().tema {
-            crate::livelli::Tema::Arena => &assets.bg2,
-            _ => &assets.bg1,
-        };
-        disegna_copertina(sfondo);
+        assets.sfondi.disegna(self.def().tema, get_time());
         self.mondo.draw_terreno(assets);
 
         // tutto ciò che è "alto" si disegna dal fondo verso lo schermo

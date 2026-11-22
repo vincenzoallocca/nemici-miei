@@ -19,6 +19,7 @@ pub mod pickup;
 pub mod player;
 pub mod portal;
 pub mod settings;
+pub mod sfondo;
 pub mod touch;
 pub mod win;
 pub mod world;
