@@ -172,9 +172,9 @@ impl HUD {
             return;
         }
         let alpha = (self.messaggio_timer as f32 / 30.0).clamp(0.0, 1.0);
-        let font = &assets.dungeon_font;
-        let righe = dividi_testo(msg, font, 25, 420.0);
-        let h = righe.len() as f32 * 30.0 + 16.0;
+        let font = &assets.dialogo_font;
+        let righe = dividi_testo(msg, font, 22, 420.0);
+        let h = righe.len() as f32 * 27.0 + 16.0;
         let (x, y, w) = (12.0, 46.0, 450.0);
 
         draw_rectangle(x, y, w, h, Color::new(0.0, 0.0, 0.0, 0.67 * alpha));
@@ -182,8 +182,8 @@ impl HUD {
 
         let mut text_y = y + 10.0;
         for riga in &righe {
-            testo_con_ombra(font, riga, x + 14.0, text_y, 25, Color::new(1.0, 1.0, 1.0, alpha), Ancora::Sinistra);
-            text_y += 30.0;
+            testo_con_ombra(font, riga, x + 14.0, text_y, 22, Color::new(1.0, 1.0, 1.0, alpha), Ancora::Sinistra);
+            text_y += 27.0;
         }
     }
 
@@ -296,7 +296,7 @@ impl HUD {
         let Some(&(nome, testo)) = STRING_DIALOGUE.get(self.dialogue_index) else {
             return;
         };
-        let font = &assets.dungeon_font;
+        let font = &assets.dialogo_font;
 
         draw_rectangle(x, y, w, h, Color::from_rgba(25, 25, 25, 255));
         draw_rectangle_lines(x, y, w, h, 2.0, Color::from_rgba(90, 90, 90, 255));

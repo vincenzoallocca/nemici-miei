@@ -357,6 +357,8 @@ pub struct Assets {
     // Fonts
     pub arcade_font: Font,
     pub dungeon_font: Font,
+    /// Pixelify Sans (licenza OFL, vedi assets/PixelifySans-OFL.txt): dialoghi e messaggi.
+    pub dialogo_font: Font,
 
     // Sfondi: copertina del menu e sfondi generati per i livelli
     pub bg3: Texture2D,
@@ -412,6 +414,7 @@ impl Assets {
         let mut percorsi: Vec<String> = [
             "Arcade.ttf",
             "DungeonFont.ttf",
+            "PixelifySans.ttf",
             "[SFONDI]/bg3.png",
             "[ITEMS]/health.png",
             "[ITEMS]/coin.png",
@@ -437,6 +440,7 @@ impl Assets {
 
         let arcade_font = archivio.font("Arcade.ttf");
         let dungeon_font = archivio.font("DungeonFont.ttf");
+        let dialogo_font = archivio.font("PixelifySans.ttf");
         let sfondi = Sfondi::genera();
         let bg3 = archivio.tex("[SFONDI]/bg3.png");
         bg3.set_filter(FilterMode::Linear);
@@ -468,6 +472,7 @@ impl Assets {
             materiale_flash: crea_materiale_flash(),
             arcade_font,
             dungeon_font,
+            dialogo_font,
             bg3,
             sfondi,
             tile_textures,
@@ -536,7 +541,7 @@ impl Assets {
         const DIMENSIONI: [u16; 13] = [16, 22, 24, 25, 26, 28, 30, 32, 50, 56, 60, 80, 90];
         let caratteri: Vec<char> = (' '..='~').chain("àèéìòùÀÈÉ".chars()).collect();
         let s = crate::settings::scala_testo();
-        for font in [&self.arcade_font, &self.dungeon_font] {
+        for font in [&self.arcade_font, &self.dungeon_font, &self.dialogo_font] {
             for d in DIMENSIONI {
                 font.populate_font_cache(&caratteri, ((d as f32 * s).round() as u16).max(1));
             }

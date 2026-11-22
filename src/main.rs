@@ -157,6 +157,7 @@ async fn main() {
 /// Solo per lo sviluppo (desktop): `NEMICI_LIVELLO=3 NEMICI_SCREENSHOT=foto.png` avvia
 /// direttamente il livello 3, salva uno screenshot dopo `NEMICI_FRAMES` frame (90) ed esce.
 /// `NEMICI_POSIZIONE=8,7` mette l'eroe su quel tile.
+/// `NEMICI_DIALOGO=3` apre il dialogo con Ugo alla terza battuta.
 struct Cattura {
     file: String,
     frame: u32,
@@ -178,6 +179,11 @@ impl Cattura {
             if let Some((x, y)) = posizione {
                 gioco.player.entita.piazza(x, y, &gioco.mondo);
                 gioco.player.entita.direction = nemici_miei::assets::Direction::Left;
+            }
+            // NEMICI_DIALOGO=3: parla con Ugo 3 volte (apre il dialogo a quella battuta)
+            let battute = std::env::var("NEMICI_DIALOGO").ok().and_then(|v| v.parse::<usize>().ok());
+            for _ in 0..battute.unwrap_or(0) {
+                gioco.interagisci();
             }
         }
         let file = std::env::var("NEMICI_SCREENSHOT").ok()?;

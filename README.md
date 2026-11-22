@@ -124,6 +124,8 @@ Per lo sviluppo c'è anche una modalità screenshot: `NEMICI_LIVELLO=3 NEMICI_SC
 
 Questo progetto è distribuito con licenza GPL-3.0 (vedi [LICENSE](LICENSE)).
 
+Il font dei dialoghi è [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans), distribuito con licenza SIL Open Font License 1.1 (vedi [assets/PixelifySans-OFL.txt](assets/PixelifySans-OFL.txt)).
+
 <h2>💖 Ti piace il progetto?</h2>
 
 Lascia una stella al repository!

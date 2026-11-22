@@ -14,7 +14,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT/assets/audio/web" "$OUT/assets/[SFONDI]"
 cp web/index.html "$OUT/"
 cp target/wasm32-unknown-unknown/release/nemici-miei.wasm "$OUT/"
-cp assets/Arcade.ttf assets/DungeonFont.ttf "$OUT/assets/"
+cp assets/Arcade.ttf assets/DungeonFont.ttf assets/PixelifySans.ttf "$OUT/assets/"
 for dir in "[BLOCCHI]" "[EROE]" "[ITEMS]" "[MOBS]" "[NPC]" "[PORTALE]"; do
     cp -r "assets/$dir" "$OUT/assets/"
 done
