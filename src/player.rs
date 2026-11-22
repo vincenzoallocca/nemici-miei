@@ -1,10 +1,9 @@
-use crate::assets::{Assets, Direction};
+use crate::assets::{Assets, Direction, Suono};
 use crate::effetti::Effetti;
 use crate::entita::Entita;
 use crate::settings::*;
 use crate::world::World;
 use macroquad::prelude::*;
-use std::collections::HashSet;
 
 pub struct Giocatore {
     pub entita: Entita,
@@ -15,8 +14,8 @@ pub struct Giocatore {
     pub monete: i32,
     pub level: i32,
     pub danno: i32,
-    pub last_attack_time: f64,
-    pub attack_cooldown: f64, // seconds: 0.600
+    /// Passi che mancano prima di poter attaccare di nuovo.
+    pub cooldown_attacco: i32,
     pub attaccato_timer: i32,
 }
 
@@ -26,13 +25,12 @@ impl Giocatore {
             entita: Entita::new(tile_x, tile_y, world, VELOCITA_NORMALE),
             thirsty: true,
             ugo_vita_bonus: false,
-            vita: 100,
-            vita_max: 100,
+            vita: VITA_GIOCATORE,
+            vita_max: VITA_GIOCATORE,
             monete: 0,
             level: 1,
-            danno: 20,
-            last_attack_time: -100.0,
-            attack_cooldown: 0.600,
+            danno: DANNO_GIOCATORE,
+            cooldown_attacco: 0,
             attaccato_timer: 0,
         }
     }
@@ -41,69 +39,55 @@ impl Giocatore {
         self.vita > 0
     }
 
+    /// Un passo di logica. `passo` è la direzione richiesta sulla griglia (tastiera o joystick).
     pub fn update(
         &mut self,
         world: &World,
-        assets: &Assets,
-        occupati: &HashSet<(i32, i32)>,
-        passo_touch: Option<(i32, i32)>,
+        occupati: &[(i32, i32)],
+        passo: (i32, i32),
+        direzione: Option<Direction>,
+        effetti: &mut Effetti,
     ) {
-        if self.entita.in_movimento() {
-            self.entita.aggiorna_movimento();
-        } else {
-            self.gestisci_input(world, assets, occupati, passo_touch);
+        if self.cooldown_attacco > 0 {
+            self.cooldown_attacco -= 1;
         }
-    }
-
-    pub fn gestisci_input(
-        &mut self,
-        world: &World,
-        assets: &Assets,
-        occupati: &HashSet<(i32, i32)>,
-        passo_touch: Option<(i32, i32)>,
-    ) {
-        let mut dx = 0;
-        let mut dy = 0;
-        let mut dir = None;
-
-        if is_key_down(KeyCode::A) || is_key_down(KeyCode::Left) {
-            dx -= 1;
-            dir = Some(Direction::Left);
-        }
-        if is_key_down(KeyCode::D) || is_key_down(KeyCode::Right) {
-            dx += 1;
-            dir = Some(Direction::Right);
-        }
-        if is_key_down(KeyCode::W) || is_key_down(KeyCode::Up) {
-            dy -= 1;
-            dir = Some(Direction::Up);
-        }
-        if is_key_down(KeyCode::S) || is_key_down(KeyCode::Down) {
-            dy += 1;
-            dir = Some(Direction::Down);
+        if self.attaccato_timer > 0 {
+            self.attaccato_timer -= 1;
         }
 
-        if dx == 0 && dy == 0 {
-            if let Some((tdx, tdy)) = passo_touch {
-                dx = tdx;
-                dy = tdy;
-                dir = Some(Self::direzione_passo(dx, dy));
+        if self.vivo() {
+            if self.entita.in_movimento() {
+                self.entita.aggiorna_movimento();
+            } else {
+                self.gestisci_input(world, occupati, passo, direzione, effetti);
             }
         }
 
-        if let Some(d) = dir {
-            self.entita.direction = d;
-        }
+        let velocita_anim = if self.entita.in_movimento() { 8 } else { 20 };
+        self.entita.avanza_animazione(4, velocita_anim);
+    }
 
-        if (dx != 0 || dy != 0)
-            && self
-                .entita
-                .muovi_verso(self.entita.tile_x + dx, self.entita.tile_y + dy, world, occupati)
+    fn gestisci_input(
+        &mut self,
+        world: &World,
+        occupati: &[(i32, i32)],
+        (dx, dy): (i32, i32),
+        direzione: Option<Direction>,
+        effetti: &mut Effetti,
+    ) {
+        if dx == 0 && dy == 0 {
+            return;
+        }
+        self.entita.direction = direzione.unwrap_or_else(|| Self::direzione_passo(dx, dy));
+        if self
+            .entita
+            .muovi_verso(self.entita.tile_x + dx, self.entita.tile_y + dy, world, occupati)
         {
-            self.suono_passo(world, assets);
+            self.suono_passo(world, effetti);
         }
     }
 
+    /// Verso quale lato dello schermo guarda chi fa il passo (dx, dy) sulla griglia.
     pub fn direzione_passo(dx: i32, dy: i32) -> Direction {
         if dx == -dy {
             if dx > 0 {
@@ -117,33 +101,31 @@ impl Giocatore {
             } else {
                 Direction::Up
             }
+        } else if dx > 0 {
+            Direction::Right
         } else {
-            if dx > 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            }
+            Direction::Left
         }
     }
 
-    pub fn suono_passo(&mut self, world: &World, assets: &Assets) {
+    pub fn suono_passo(&mut self, world: &World, effetti: &mut Effetti) {
         let tile = world.tipo_tile(self.entita.tile_x, self.entita.tile_y);
         self.entita.velocita = VELOCITA_NORMALE;
 
         if let Some(t) = tile {
             if is_tile_erba(t) {
-                assets.play_sound(&assets.snd_grass, 0.35);
+                effetti.suona(Suono::Erba, 0.15);
             } else if is_tile_acqua(t) {
-                assets.play_sound(&assets.snd_acqua, 0.35);
+                effetti.suona(Suono::Acqua, 0.15);
                 self.entita.velocita = VELOCITA_ACQUA;
             } else if is_tile_pietra(t) {
-                assets.play_sound(&assets.snd_stone, 0.35);
+                effetti.suona(Suono::Pietra, 0.15);
             }
         }
     }
 
-    pub fn sul_portale(&self, world: &World) -> bool {
-        world.tipo_tile(self.entita.tile_x, self.entita.tile_y) == Some(20) && !self.entita.in_movimento()
+    pub fn sul_tile(&self, tile: (i32, i32)) -> bool {
+        self.entita.tile() == tile && !self.entita.in_movimento()
     }
 
     pub fn is_near_fountain(&self, world: &World) -> bool {
@@ -151,9 +133,7 @@ impl Giocatore {
             for x in (fx - 1)..=(fx + 1) {
                 for y in (fy - 1)..=(fy + 1) {
                     if let Some(t) = world.tipo_tile(x, y) {
-                        if (t == 18 || t == 19)
-                            && (self.entita.tile_x - x).abs().max((self.entita.tile_y - y).abs()) == 1
-                        {
+                        if (t == TILE_FONTANELLA || t == TILE_BORDO_FONTANA) && self.entita.distanza_tiles(x, y) == 1 {
                             return true;
                         }
                     }
@@ -167,10 +147,10 @@ impl Giocatore {
         self.is_near_fountain(world) && self.thirsty && ha_parlato
     }
 
-    pub fn bevi(&mut self, assets: &Assets, effetti: &mut Effetti) {
+    pub fn bevi(&mut self, effetti: &mut Effetti) {
         self.thirsty = false;
         self.monete += 1;
-        assets.play_sound(&assets.snd_coin, 1.0);
+        effetti.suona(Suono::Moneta, 1.0);
         effetti.add_text("+1 moneta", self.entita.x, self.entita.y - 80.0, Color::from_rgba(250, 210, 60, 255));
         self.cura(25, effetti);
     }
@@ -188,12 +168,12 @@ impl Giocatore {
         }
     }
 
-    pub fn take_damage(&mut self, amount: i32, assets: &Assets, effetti: &mut Effetti) {
+    pub fn take_damage(&mut self, amount: i32, effetti: &mut Effetti) {
         if !self.vivo() {
             return;
         }
         self.vita = (self.vita - amount).max(0);
-        assets.play_sound(&assets.snd_player_dmg, 0.6);
+        effetti.suona(Suono::DannoGiocatore, 0.35);
         self.attaccato_timer = 15;
         effetti.add_text(
             &format!("-{}", amount),
@@ -201,46 +181,40 @@ impl Giocatore {
             self.entita.y - 60.0,
             Color::from_rgba(255, 80, 80, 255),
         );
+        effetti.scintille(self.entita.x, self.entita.y - 30.0, Color::from_rgba(220, 40, 40, 255), 8);
     }
 
+    /// Da 0 (appena attaccato) a 1 (pronto).
     pub fn ricarica_attacco(&self) -> f32 {
-        let now = get_time();
-        let elapsed = now - self.last_attack_time;
-        ((elapsed / self.attack_cooldown) as f32).clamp(0.0, 1.0)
+        1.0 - (self.cooldown_attacco as f32 / COOLDOWN_ATTACCO as f32).clamp(0.0, 1.0)
     }
 
     pub fn puo_attaccare(&self) -> bool {
-        get_time() - self.last_attack_time >= self.attack_cooldown
+        self.cooldown_attacco <= 0
     }
 
-    pub fn esegui_attacco(&mut self, assets: &Assets, effetti: &mut Effetti) -> bool {
-        if !self.puo_attaccare() {
+    pub fn esegui_attacco(&mut self, effetti: &mut Effetti) -> bool {
+        if !self.puo_attaccare() || !self.vivo() {
             return false;
         }
-        self.last_attack_time = get_time();
+        self.cooldown_attacco = COOLDOWN_ATTACCO;
         effetti.add_fendente(self.entita.x, self.entita.y - 25.0, self.entita.direction);
-        assets.play_sound(&assets.snd_attack, 0.7);
+        effetti.suona(Suono::Attacco, 0.5);
         true
     }
 
-    pub fn draw(&mut self, assets: &Assets) {
+    pub fn draw(&self, assets: &Assets) {
         let frames = if self.entita.in_movimento() {
             assets.player_walk.get(self.entita.direction)
         } else {
             assets.player_idle.get(self.entita.direction)
         };
-        let anim_speed = if self.entita.in_movimento() { 8 } else { 20 };
-        let tex = self.entita.anima(frames, anim_speed);
+        let tex = self.entita.frame(frames);
 
         self.entita.disegna_ombra(30.0);
 
-        let tint = if self.attaccato_timer > 0 {
-            self.attaccato_timer -= 1;
-            Some(Color::from_rgba(255, 100, 100, 255))
-        } else {
-            None
-        };
-
-        self.entita.disegna_sprite(tex, 4.0, SCALA_PLAYER, tint);
+        let tint = (self.attaccato_timer > 0).then(|| Color::from_rgba(255, 100, 100, 255));
+        // l'ultima riga dello sprite è vuota: lo abbassiamo di un pixel (2 a schermo)
+        self.entita.disegna_sprite(tex, -SCALA_PIXEL, SCALA_PIXEL, tint, 0.0, assets);
     }
 }

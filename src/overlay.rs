@@ -1,5 +1,6 @@
 use crate::assets::Assets;
-use crate::hud::testo_con_ombra;
+use crate::hud::{testo_con_ombra, Ancora};
+use crate::input::{Input, NOME_TASTO_PAUSA};
 use crate::menu::Bottone;
 use crate::settings::{ALTEZZA, CONSIGLI, LUNGHEZZA};
 use macroquad::prelude::*;
@@ -41,18 +42,18 @@ impl SchermataMorte {
             ALTEZZA / 2.0 - 110.0,
             80,
             Color::from_rgba(255, 0, 0, 255),
-            "center",
+            Ancora::Centro,
         );
 
         if !self.touch {
             testo_con_ombra(
                 &assets.arcade_font,
-                "Premi R per riprovare",
+                "Premi R per riprovare il livello",
                 LUNGHEZZA / 2.0,
                 ALTEZZA / 2.0 - 55.0,
                 26,
                 WHITE,
-                "center",
+                Ancora::Centro,
             );
         }
 
@@ -66,18 +67,15 @@ impl SchermataMorte {
             ALTEZZA / 2.0 + 160.0,
             24,
             Color::from_rgba(250, 210, 60, 255),
-            "center",
+            Ancora::Centro,
         );
     }
 
-    pub fn handle_events(&self, mouse_pos: (f32, f32), clicked: bool) -> GameOverAction {
-        if is_key_pressed(KeyCode::R) || is_key_pressed(KeyCode::Enter) {
+    pub fn handle_events(&self, input: &Input) -> GameOverAction {
+        if input.premuti.r || input.premuti.invio || self.btn_riprova.cliccato(input) {
             return GameOverAction::Riprova;
         }
-        if self.btn_riprova.cliccato(mouse_pos, clicked) {
-            return GameOverAction::Riprova;
-        }
-        if self.btn_menu.cliccato(mouse_pos, clicked) {
+        if self.btn_menu.cliccato(input) {
             return GameOverAction::Menu;
         }
         GameOverAction::None
@@ -132,18 +130,18 @@ impl SchermataPausa {
             ALTEZZA / 2.0 - 110.0,
             80,
             Color::from_rgba(255, 0, 0, 255),
-            "center",
+            Ancora::Centro,
         );
 
         if !self.touch {
             testo_con_ombra(
                 &assets.arcade_font,
-                "ESC per riprendere, M per l'audio",
+                &format!("{} per riprendere, M per l'audio", NOME_TASTO_PAUSA),
                 LUNGHEZZA / 2.0,
                 ALTEZZA / 2.0 - 55.0,
                 26,
                 WHITE,
-                "center",
+                Ancora::Centro,
             );
         }
 
@@ -152,17 +150,14 @@ impl SchermataPausa {
         self.btn_menu.draw(mouse_pos, assets);
     }
 
-    pub fn handle_events(&self, mouse_pos: (f32, f32), clicked: bool) -> PausaAction {
-        if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::P) {
+    pub fn handle_events(&self, input: &Input) -> PausaAction {
+        if input.pausa() || self.btn_riprendi.cliccato(input) {
             return PausaAction::Riprendi;
         }
-        if self.btn_riprendi.cliccato(mouse_pos, clicked) {
-            return PausaAction::Riprendi;
-        }
-        if self.btn_audio.cliccato(mouse_pos, clicked) {
+        if self.btn_audio.cliccato(input) {
             return PausaAction::Audio;
         }
-        if self.btn_menu.cliccato(mouse_pos, clicked) {
+        if self.btn_menu.cliccato(input) {
             return PausaAction::Menu;
         }
         PausaAction::None

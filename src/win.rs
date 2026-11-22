@@ -1,8 +1,10 @@
 use crate::assets::Assets;
-use crate::hud::testo_con_ombra;
-use crate::settings::{ALTEZZA, LUNGHEZZA};
+use crate::hud::{testo_con_ombra, Ancora, GIALLO};
+use crate::input::Input;
+use crate::settings::{ALTEZZA, AUTORI, LUNGHEZZA};
 use macroquad::prelude::*;
 
+/// Titoli di coda.
 pub struct Win {
     pub credit_offset: f32,
     pub fine_offset: f32,
@@ -13,22 +15,17 @@ pub struct Win {
 
 impl Win {
     pub fn new(monete: i32) -> Self {
-        let lines = vec![
+        let mut lines = vec![
             "HAI VINTO!".to_string(),
-            "".to_string(),
+            String::new(),
             format!("Monete raccolte: {}", monete),
-            "".to_string(),
+            String::new(),
             "Sviluppato da: Rock A' Raso GAME LLC".to_string(),
-            "".to_string(),
-            "Allocca Vincenzo".to_string(),
-            "Cerciello Antonio".to_string(),
-            "Cestie' Augusto".to_string(),
-            "Pellegrino Andrea".to_string(),
-            "Prisco Carmine".to_string(),
-            "Sdino Raffaele".to_string(),
-            "".to_string(),
-            "Grazie per aver giocato!".to_string(),
+            String::new(),
         ];
+        lines.extend(AUTORI.iter().map(|a| a.to_string()));
+        lines.push(String::new());
+        lines.push("Grazie per aver giocato!".to_string());
 
         let line_spacing = 44.0;
         let fine_offset = ALTEZZA / 2.0 - (lines.len() as f32 - 1.0) * line_spacing;
@@ -53,33 +50,17 @@ impl Win {
     }
 
     pub fn draw(&self, assets: &Assets) {
-        clear_background(BLACK);
+        draw_rectangle(0.0, 0.0, LUNGHEZZA, ALTEZZA, BLACK);
 
         for (i, line) in self.lines.iter().enumerate() {
             let y = self.credit_offset + i as f32 * self.line_spacing;
             if y > -50.0 && y < ALTEZZA + 50.0 {
-                let col = if line == "HAI VINTO!" {
-                    Color::from_rgba(250, 210, 60, 255)
-                } else {
-                    WHITE
-                };
-                let font_size = 32;
-                let dims = measure_text(line, Some(&assets.arcade_font), font_size, 1.0);
-                draw_text_ex(
-                    line,
-                    LUNGHEZZA / 2.0 - dims.width / 2.0,
-                    y - dims.height / 2.0 + dims.offset_y,
-                    TextParams {
-                        font: Some(&assets.arcade_font),
-                        font_size,
-                        color: col,
-                        ..Default::default()
-                    },
-                );
+                let col = if i == 0 { GIALLO } else { WHITE };
+                testo_con_ombra(&assets.arcade_font, line, LUNGHEZZA / 2.0, y, 32, col, Ancora::Centro);
             }
         }
 
-        // Header banner
+        // intestazione
         draw_rectangle(0.0, 0.0, LUNGHEZZA, 90.0, BLACK);
         testo_con_ombra(
             &assets.dungeon_font,
@@ -88,7 +69,7 @@ impl Win {
             45.0,
             60,
             Color::from_rgba(255, 0, 0, 255),
-            "center",
+            Ancora::Centro,
         );
 
         if self.finito() {
@@ -99,18 +80,13 @@ impl Win {
                 ALTEZZA - 40.0,
                 26,
                 WHITE,
-                "center",
+                Ancora::Centro,
             );
         }
     }
 
-    pub fn handle_events(&self, clicked: bool) -> bool {
-        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
-            return true;
-        }
-        if clicked && self.finito() {
-            return true;
-        }
-        false
+    /// Vero quando si vuole tornare al menu (i tasti saltano i titoli, il click solo alla fine).
+    pub fn handle_events(&self, input: &Input) -> bool {
+        input.conferma() || input.premuti.esc || (input.premuti.click && self.finito())
     }
 }

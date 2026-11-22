@@ -1,4 +1,5 @@
 use crate::assets::Assets;
+use crate::hud::{testo_con_ombra, Ancora};
 use crate::settings::{ALTEZZA, GRANDEZZA_TILES, HUD_HEIGHT, LUNGHEZZA};
 use macroquad::prelude::*;
 
@@ -50,19 +51,21 @@ impl Pulsante {
         draw_circle(self.centro.0, self.centro.1, self.raggio, Color::new(1.0, 1.0, 1.0, alpha));
         draw_circle_lines(self.centro.0, self.centro.1, self.raggio, 3.0, Color::new(0.0, 0.0, 0.0, 160.0 / 255.0));
 
-        let font_size = 30;
-        let dims = measure_text(self.etichetta, Some(&assets.arcade_font), font_size, 1.0);
-        draw_text_ex(
+        testo_con_ombra(
+            &assets.arcade_font,
             self.etichetta,
-            self.centro.0 - dims.width / 2.0,
-            self.centro.1 + dims.offset_y / 2.0,
-            TextParams {
-                font: Some(&assets.arcade_font),
-                font_size,
-                color: Color::from_rgba(20, 20, 20, 255),
-                ..Default::default()
-            },
+            self.centro.0,
+            self.centro.1,
+            30,
+            Color::from_rgba(20, 20, 20, 255),
+            Ancora::Centro,
         );
+    }
+}
+
+impl Default for ControlliTouch {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -107,70 +110,61 @@ impl ControlliTouch {
         self.pausa.touch_id = None;
     }
 
-    pub fn handle_input(&mut self, _mouse_world: (f32, f32)) -> (bool, bool, bool) {
-        let mut azione_attacca = false;
+    /// Elabora i tocchi di questo frame (posizioni già in coordinate di gioco).
+    /// Restituisce (interagisci, pausa): pulsanti appena toccati.
+    pub fn processa(&mut self, tocchi: &[(u64, TouchPhase, (f32, f32))]) -> (bool, bool) {
         let mut azione_interagisci = false;
         let mut azione_pausa = false;
 
-        let cur_touches = touches();
-        if !cur_touches.is_empty() {
+        if !tocchi.is_empty() {
             self.attivo = true;
         }
 
-        for t in &cur_touches {
-            let pos = (t.position.x, t.position.y);
-            match t.phase {
+        for &(id, fase, pos) in tocchi {
+            match fase {
                 TouchPhase::Started => {
                     if self.interagisci.touch_id.is_none() && self.interagisci.contiene(pos) {
-                        self.interagisci.touch_id = Some(t.id);
+                        self.interagisci.touch_id = Some(id);
                         self.interagisci.premuto = true;
                         azione_interagisci = true;
                     } else if self.pausa.touch_id.is_none() && self.pausa.contiene(pos) {
-                        self.pausa.touch_id = Some(t.id);
+                        self.pausa.touch_id = Some(id);
                         self.pausa.premuto = true;
                         azione_pausa = true;
                     } else if self.attacco.touch_id.is_none() && self.attacco.contiene(pos) {
-                        self.attacco.touch_id = Some(t.id);
+                        self.attacco.touch_id = Some(id);
                         self.attacco.premuto = true;
-                    } else if self.joy_touch_id.is_none()
-                        && pos.0 < LUNGHEZZA * 0.55
-                        && pos.1 < ALTEZZA - HUD_HEIGHT
-                    {
-                        self.joy_touch_id = Some(t.id);
+                    } else if self.joy_touch_id.is_none() && pos.0 < LUNGHEZZA * 0.55 && pos.1 < ALTEZZA - HUD_HEIGHT {
+                        self.joy_touch_id = Some(id);
                         self.joy_centro = pos;
                         self.joy_pos = pos;
                     }
                 }
                 TouchPhase::Moved | TouchPhase::Stationary => {
-                    if Some(t.id) == self.joy_touch_id {
+                    if Some(id) == self.joy_touch_id {
                         self.joy_pos = pos;
                     }
                 }
                 TouchPhase::Ended | TouchPhase::Cancelled => {
-                    if Some(t.id) == self.joy_touch_id {
+                    if Some(id) == self.joy_touch_id {
                         self.joy_touch_id = None;
                     }
-                    if Some(t.id) == self.attacco.touch_id {
-                        self.attacco.touch_id = None;
-                        self.attacco.premuto = false;
-                    }
-                    if Some(t.id) == self.interagisci.touch_id {
-                        self.interagisci.touch_id = None;
-                        self.interagisci.premuto = false;
-                    }
-                    if Some(t.id) == self.pausa.touch_id {
-                        self.pausa.touch_id = None;
-                        self.pausa.premuto = false;
+                    for p in [&mut self.attacco, &mut self.interagisci, &mut self.pausa] {
+                        if Some(id) == p.touch_id {
+                            p.touch_id = None;
+                            p.premuto = false;
+                        }
                     }
                 }
             }
         }
 
-        if self.attacco.premuto {
-            azione_attacca = true;
-        }
+        (azione_interagisci, azione_pausa)
+    }
 
-        (azione_attacca, azione_interagisci, azione_pausa)
+    /// L'attacco resta attivo finché il dito è sul pulsante.
+    pub fn attacco_premuto(&self) -> bool {
+        self.attacco.premuto
     }
 
     pub fn passo(&self) -> Option<(i32, i32)> {
@@ -232,11 +226,5 @@ impl ControlliTouch {
         self.attacco.draw(assets);
         self.interagisci.draw(assets);
         self.pausa.draw(assets);
-    }
-}
-
-impl Default for ControlliTouch {
-    fn default() -> Self {
-        Self::new()
     }
 }
