@@ -8,6 +8,9 @@
     <meta name="description" content="Nemici Miei: gioco d'avventura isometrico scritto in Rust, giocabile nel browser anche da telefono.">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- il gioco e la musica iniziano a scaricarsi subito, in parallelo al resto -->
+    <link rel="preload" href="nemici-miei.wasm" as="fetch" type="application/wasm" crossorigin="anonymous">
+    <link rel="preload" href="assets/audio/web/soundtrack.mp3" as="fetch" crossorigin="anonymous">
     <style>
         html, body {
             margin: 0;

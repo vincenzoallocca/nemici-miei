@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 use macroquad::experimental::coroutines::start_coroutine;
-use nemici_miei::assets::{Assets, Musica};
+use nemici_miei::assets::{carica_brano, Assets, MusicTrack};
 use nemici_miei::game::Gioco;
 use nemici_miei::input::{Input, WEB};
 use nemici_miei::settings::{imposta_scala_testo, ALTEZZA, DT, LUNGHEZZA, TITOLO};
@@ -25,30 +25,61 @@ fn window_conf() -> Conf {
 }
 
 /// Camera che mostra l'area di gioco 960x720 al centro della finestra, con bande nere ai lati.
-fn camera_gioco() -> (Camera2D, f32) {
-    let sw = screen_width();
-    let sh = screen_height();
-    let scala = (sw / LUNGHEZZA).min(sh / ALTEZZA);
-    let vp_w = (LUNGHEZZA * scala).round();
-    let vp_h = (ALTEZZA * scala).round();
-    let ox = ((sw - vp_w) / 2.0).round();
-    let oy = ((sh - vp_h) / 2.0).round();
+/// Dove sta l'area di gioco 960x720 nella finestra (centrata, con bande nere ai lati).
+///
+/// Attenzione agli schermi ad alta densità (telefoni, Retina, Windows al 150%):
+/// `screen_width()` e il mouse sono in pixel logici, mentre il viewport di OpenGL e i
+/// tocchi sono in pixel fisici. Senza conversione il gioco finiva piccolo in un angolo.
+struct Vista {
+    camera: Camera2D,
+    /// Pixel logici per unità di gioco.
+    scala: f32,
+    /// Angolo in alto a sinistra dell'area di gioco, in pixel logici.
+    ox: f32,
+    oy: f32,
+    dpi: f32,
+}
 
-    let camera = Camera2D {
-        zoom: vec2(2.0 / LUNGHEZZA, 2.0 / ALTEZZA),
-        target: vec2(LUNGHEZZA / 2.0, ALTEZZA / 2.0),
-        viewport: Some((ox as i32, oy as i32, vp_w as i32, vp_h as i32)),
-        ..Default::default()
-    };
-    (camera, scala)
+impl Vista {
+    fn calcola() -> Self {
+        let dpi = screen_dpi_scale().max(0.1);
+        let (sw, sh) = (screen_width(), screen_height());
+        let scala = (sw / LUNGHEZZA).min(sh / ALTEZZA);
+        let (vp_w, vp_h) = (LUNGHEZZA * scala, ALTEZZA * scala);
+        let (ox, oy) = ((sw - vp_w) / 2.0, (sh - vp_h) / 2.0);
+        let fisico = |v: f32| (v * dpi).round() as i32;
+        let camera = Camera2D {
+            zoom: vec2(2.0 / LUNGHEZZA, 2.0 / ALTEZZA),
+            target: vec2(LUNGHEZZA / 2.0, ALTEZZA / 2.0),
+            // il viewport è in pixel fisici, con l'origine in basso: centrato, quindi oy va bene
+            viewport: Some((fisico(ox), fisico(oy), fisico(vp_w), fisico(vp_h))),
+            ..Default::default()
+        };
+        Self { camera, scala, ox, oy, dpi }
+    }
+
+    /// Da pixel logici a coordinate di gioco.
+    fn da_logico(&self, p: Vec2) -> (f32, f32) {
+        ((p.x - self.ox) / self.scala, (p.y - self.oy) / self.scala)
+    }
+
+    /// Da pixel fisici (tocchi) a coordinate di gioco.
+    fn da_fisico(&self, p: Vec2) -> (f32, f32) {
+        self.da_logico(p / self.dpi)
+    }
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
     rand::srand(macroquad::miniquad::date::now().to_bits());
 
+    // la musica parte a scaricarsi subito, in parallelo con immagini ed effetti sonori
+    let mut brani = vec![
+        start_coroutine(carica_brano(MusicTrack::Soundtrack, true)),
+        start_coroutine(carica_brano(MusicTrack::Boss, false)),
+    ];
     let mut assets = Assets::load().await;
-    let mut musica = Some(start_coroutine(Musica::carica()));
+    assets.prepara_testo();
     let mut gioco = Gioco::new();
     let mut input = Input::default();
     let mut accumulatore = 0.0f32;
@@ -56,18 +87,17 @@ async fn main() {
     let mut cattura = Cattura::da_ambiente(&mut gioco);
 
     loop {
-        let (camera, scala) = camera_gioco();
-        imposta_scala_testo(scala * screen_dpi_scale().max(1.0));
+        let vista = Vista::calcola();
+        if imposta_scala_testo(vista.scala * vista.dpi) {
+            // nuova risoluzione: i caratteri vanno preparati prima di disegnare
+            assets.prepara_testo();
+        }
 
         // input di questo frame, in coordinate di gioco
-        let in_gioco = |p: Vec2| {
-            let w = camera.screen_to_world(p);
-            (w.x, w.y)
-        };
-        input.unisci(Input::leggi(in_gioco(mouse_position().into())));
+        input.unisci(Input::leggi(vista.da_logico(mouse_position().into())));
         let tocchi: Vec<_> = touches()
             .iter()
-            .map(|t| (t.id, t.phase, in_gioco(t.position)))
+            .map(|t| (t.id, t.phase, vista.da_fisico(t.position)))
             .collect();
         let (interagisci, pausa) = gioco.processa_tocchi(&tocchi);
         input.touch_interagisci |= interagisci;
@@ -94,19 +124,23 @@ async fn main() {
             accumulatore = 0.0;
         }
 
-        if let Some(m) = musica.as_ref().and_then(|c| c.retrieve()) {
-            assets.imposta_musica(m);
-            musica = None;
-        }
         for comando in gioco.audio.drain(..) {
             assets.esegui(comando);
         }
         for (suono, volume) in gioco.effetti.suoni.drain(..) {
             assets.play(suono, volume);
         }
+        // dopo i comandi: il gioco ha già chiesto quale brano vuole
+        brani.retain(|c| match c.retrieve() {
+            Some(caricato) => {
+                assets.imposta_brano(caricato);
+                false
+            }
+            None => true,
+        });
 
         clear_background(BLACK);
-        set_camera(&camera);
+        set_camera(&vista.camera);
         gioco.draw(&assets, input.mouse);
         set_default_camera();
 

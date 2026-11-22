@@ -86,6 +86,8 @@ python -m http.server 8000 --directory dist
 
 e apri http://localhost:8000.
 
+In alternativa `bash scripts/build-web.sh` prepara la cartella `dist` con solo i file usati. Nel browser i suoni sono MP3 (li decodificano tutti i browser, Safari compreso) e la colonna sonora parte appena è pronta, mentre il resto del gioco sta ancora caricando.
+
 <h2>🧪 Test</h2>
 
 I test controllano la logica di gioco senza aprire la finestra, compresa una partita completa simulata dal menu ai titoli di coda:
@@ -115,6 +117,7 @@ Per lo sviluppo c'è anche una modalità screenshot: `NEMICI_LIVELLO=3 NEMICI_SC
 | `src/touch.rs` | Joystick e pulsanti sullo schermo per giocare da telefono |
 | `web/index.html` | Pagina della versione web |
 | `tests/` | Test automatici |
+| `tools/converti_audio.py` | Crea gli MP3 leggeri della versione web in `assets/audio/web` (script Python opzionale) |
 | `tools/genera_eroe.py` | Disegna gli sprite pixel-art dell'eroe in `assets/[EROE]` (script Python opzionale, serve `pygame`) |
 
 <h2>🛡️ Licenza</h2>

@@ -87,8 +87,12 @@ pub fn terreno_sotto(id: u8) -> u8 {
 // essere ingrandito), così resta nitido anche a schermo intero.
 static SCALA_TESTO: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0
 
-pub fn imposta_scala_testo(scala: f32) {
-    SCALA_TESTO.store(scala.clamp(0.5, 4.0).to_bits(), Ordering::Relaxed);
+/// Imposta la scala del testo (pixel fisici per unità di gioco). Viene arrotondata a quarti,
+/// così le dimensioni dei caratteri sono poche e restano nella cache dei glifi.
+/// Restituisce `true` se è cambiata.
+pub fn imposta_scala_testo(scala: f32) -> bool {
+    let scala = ((scala * 4.0).round() / 4.0).clamp(0.5, 3.0);
+    SCALA_TESTO.swap(scala.to_bits(), Ordering::Relaxed) != scala.to_bits()
 }
 
 pub fn scala_testo() -> f32 {

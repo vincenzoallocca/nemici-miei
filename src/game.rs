@@ -1,4 +1,4 @@
-use crate::assets::{Assets, ComandoAudio, MusicTrack};
+use crate::assets::{Assets, ComandoAudio, MusicTrack, VOLUME_BOSS, VOLUME_SOUNDTRACK};
 use crate::boss::Boss;
 use crate::effetti::Effetti;
 use crate::enemy::Enemy;
@@ -30,8 +30,6 @@ pub enum GameState {
 
 /// Durata della scritta "LIVELLO N" all'inizio di un livello.
 const DURATA_BANNER: i32 = 150;
-const VOLUME_SOUNDTRACK: f32 = 0.45;
-const VOLUME_BOSS: f32 = 1.0;
 
 pub struct Gioco {
     pub stato: GameState,
