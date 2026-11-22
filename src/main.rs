@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
-use nemici_miei::assets::Assets;
+use macroquad::experimental::coroutines::start_coroutine;
+use nemici_miei::assets::{Assets, Musica};
 use nemici_miei::game::Gioco;
 use nemici_miei::input::{Input, WEB};
 use nemici_miei::settings::{imposta_scala_testo, ALTEZZA, DT, LUNGHEZZA, TITOLO};
@@ -39,6 +40,7 @@ async fn main() {
     rand::srand(macroquad::miniquad::date::now().to_bits());
 
     let mut assets = Assets::load().await;
+    let mut musica = Some(start_coroutine(Musica::carica()));
     let mut gioco = Gioco::new();
     let mut input = Input::default();
     let mut accumulatore = 0.0f32;
@@ -84,6 +86,10 @@ async fn main() {
             accumulatore = 0.0;
         }
 
+        if let Some(m) = musica.as_ref().and_then(|c| c.retrieve()) {
+            assets.imposta_musica(m);
+            musica = None;
+        }
         for comando in gioco.audio.drain(..) {
             assets.esegui(comando);
         }

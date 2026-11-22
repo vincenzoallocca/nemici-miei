@@ -241,6 +241,22 @@ fn crea_materiale_flash() -> Material {
     .expect("shader del lampo bianco")
 }
 
+/// Le musiche pesano quasi 5 MB: si caricano in background mentre si gioca già
+/// (soprattutto nel browser, altrimenti il menu comparirebbe molto più tardi).
+pub struct Musica {
+    pub soundtrack: Option<Sound>,
+    pub boss: Option<Sound>,
+}
+
+impl Musica {
+    pub async fn carica() -> Self {
+        Self {
+            soundtrack: load_snd("audio/soundtrack.ogg").await,
+            boss: load_snd("audio/boss_soundtrack.ogg").await,
+        }
+    }
+}
+
 pub struct Assets {
     pub materiale_flash: Material,
 
@@ -292,7 +308,7 @@ pub struct Assets {
 
 impl Assets {
     pub async fn load() -> Self {
-        let mut c = Caricamento { fatti: 0, totale: 12 };
+        let mut c = Caricamento { fatti: 0, totale: 10 };
         c.avanza(0).await;
 
         let mut arcade_font = load_ttf_font(&asset_path("Arcade.ttf")).await.expect("Arcade.ttf");
@@ -343,11 +359,6 @@ impl Assets {
         let snd_bat_morte = load_snd("audio/bat_mobile.ogg").await;
         c.avanza(1).await;
 
-        let mus_soundtrack = load_snd("audio/soundtrack.ogg").await;
-        c.avanza(1).await;
-        let mus_boss = load_snd("audio/boss_soundtrack.ogg").await;
-        c.avanza(1).await;
-
         Self {
             materiale_flash: crea_materiale_flash(),
             arcade_font,
@@ -371,13 +382,22 @@ impl Assets {
             snd_attack,
             snd_player_dmg,
             snd_bat_morte,
-            mus_soundtrack,
-            mus_boss,
+            mus_soundtrack: None,
+            mus_boss: None,
             audio_attivo: true,
             current_music_track: MusicTrack::None,
             current_music: None,
             current_music_volume: 0.2,
         }
+    }
+
+    /// Imposta la musica caricata in background e fa partire il brano richiesto nel frattempo.
+    pub fn imposta_musica(&mut self, musica: Musica) {
+        self.mus_soundtrack = musica.soundtrack;
+        self.mus_boss = musica.boss;
+        let (brano, volume) = (self.current_music_track, self.current_music_volume);
+        self.current_music_track = MusicTrack::None;
+        self.play_music(brano, volume);
     }
 
     pub fn tile(&self, id: u8) -> Option<&Texture2D> {
@@ -426,7 +446,7 @@ impl Assets {
     }
 
     pub fn play_music(&mut self, track: MusicTrack, volume: f32) {
-        if self.current_music_track == track {
+        if self.current_music_track == track && self.current_music.is_some() {
             return;
         }
         self.current_music_volume = volume;

@@ -25,15 +25,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - name: Build web (wasm32)
-        run: cargo build --locked --release --target wasm32-unknown-unknown
-      - name: Prepara la cartella del sito
-        run: |
-          mkdir -p dist
-          cp web/index.html dist/
-          cp target/wasm32-unknown-unknown/release/nemici-miei.wasm dist/
-          cp -r assets dist/
-          curl -fsSL -o dist/mq_js_bundle.js https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js
+      - name: Build web (wasm32) e cartella del sito
+        run: bash scripts/build-web.sh dist
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
