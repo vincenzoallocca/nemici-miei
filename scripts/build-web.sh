@@ -8,12 +8,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${1:-dist}"
 
-cargo build --locked --release --target wasm32-unknown-unknown
+cargo build --locked --profile web --target wasm32-unknown-unknown
 
 rm -rf "$OUT"
 mkdir -p "$OUT/assets/audio/web" "$OUT/assets/[SFONDI]"
-cp web/index.html "$OUT/"
-cp target/wasm32-unknown-unknown/release/nemici-miei.wasm "$OUT/"
+cp web/index.html web/robustezza.js "$OUT/"
+cp target/wasm32-unknown-unknown/web/nemici-miei.wasm "$OUT/"
 cp assets/Arcade.ttf assets/DungeonFont.ttf assets/PixelifySans.ttf "$OUT/assets/"
 for dir in "[BLOCCHI]" "[EROE]" "[ITEMS]" "[MOBS]" "[NPC]" "[PORTALE]"; do
     cp -r "assets/$dir" "$OUT/assets/"
@@ -33,7 +33,8 @@ fi
 impronta() { sha256sum "$1" | cut -c1-12; }
 V_WASM=$(impronta "$OUT/nemici-miei.wasm")
 V_JS=$(impronta "$OUT/mq_js_bundle.js")
-sed -i -e "s|mq_js_bundle.js\"|mq_js_bundle.js?v=$V_JS\"|" -e "s|nemici-miei.wasm\"|nemici-miei.wasm?v=$V_WASM\"|g" "$OUT/index.html"
+V_ROB=$(impronta "$OUT/robustezza.js")
+sed -i -e "s|mq_js_bundle.js\"|mq_js_bundle.js?v=$V_JS\"|" -e "s|robustezza.js\"|robustezza.js?v=$V_ROB\"|" -e "s|nemici-miei.wasm\"|nemici-miei.wasm?v=$V_WASM\"|g" "$OUT/index.html"
 grep -q "nemici-miei.wasm?v=" "$OUT/index.html" || { echo "impronta di versione non applicata a index.html" >&2; exit 1; }
 
 echo "Versione web pronta in $OUT ($(du -sh "$OUT" | cut -f1))"

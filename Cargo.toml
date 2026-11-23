@@ -25,3 +25,9 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Versione web: ottimizzata per dimensione. Il .wasm passa da ~820 a ~630 KB (si scarica e si
+# compila prima) e il gioco va comunque a 60 fps pieni.
+[profile.web]
+inherits = "release"
+opt-level = "s"

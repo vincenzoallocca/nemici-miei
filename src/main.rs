@@ -79,7 +79,8 @@ async fn main() {
         start_coroutine(carica_brano(MusicTrack::Boss, false)),
     ];
     let mut assets = Assets::load().await;
-    assets.prepara_testo();
+    // i caratteri si preparano nel ciclo qui sotto, già alla scala dello schermo
+    let mut testo_pronto = false;
     let mut gioco = Gioco::new();
     let mut input = Input::default();
     let mut accumulatore = 0.0f32;
@@ -88,7 +89,8 @@ async fn main() {
 
     loop {
         let vista = Vista::calcola();
-        if imposta_scala_testo(vista.scala * vista.dpi) {
+        if imposta_scala_testo(vista.scala, vista.dpi) || !testo_pronto {
+            testo_pronto = true;
             // nuova risoluzione: i caratteri vanno preparati prima di disegnare
             assets.prepara_testo();
         }

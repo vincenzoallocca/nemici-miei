@@ -143,6 +143,32 @@ async fn aspetta_tutte<T: 'static + std::any::Any>(lavori: Vec<Coroutine<T>>, fa
     }
 }
 
+/// Come `aspetta_tutte`, ma dopo `limite` secondi smette di aspettare: chi non ha finito
+/// resta `None`. Per gli effetti sonori: se un browser non riesce a decodificarne uno,
+/// macroquad aspetterebbe per sempre e il gioco non partirebbe mai.
+async fn aspetta_con_limite<T: 'static + std::any::Any>(
+    lavori: Vec<Coroutine<T>>,
+    limite: f64,
+    fatti_prima: usize,
+    totale: usize,
+) -> Vec<Option<T>> {
+    let mut risultati: Vec<Option<T>> = (0..lavori.len()).map(|_| None).collect();
+    let inizio = get_time();
+    loop {
+        for (lavoro, posto) in lavori.iter().zip(risultati.iter_mut()) {
+            if posto.is_none() {
+                *posto = lavoro.retrieve();
+            }
+        }
+        let fatti = risultati.iter().filter(|r| r.is_some()).count();
+        if fatti == risultati.len() || get_time() - inizio > limite {
+            return risultati;
+        }
+        disegna_caricamento((fatti_prima + fatti) as f32 / totale as f32);
+        next_frame().await;
+    }
+}
+
 /// Tutti i file scaricati, per percorso relativo ad assets/.
 ///
 /// Il download avviene tutto in parallelo: nel browser scaricare un centinaio di file
@@ -151,27 +177,66 @@ struct Archivio {
     file: HashMap<String, Vec<u8>>,
 }
 
+/// Scarica un file riprovando qualche volta: sul telefono, con una connessione instabile, una
+/// richiesta su cento può fallire, e prima bastava quella per bloccare tutto il gioco.
+async fn scarica_con_ritentativi(percorso: &str) -> Result<Vec<u8>, String> {
+    let mut errore = String::new();
+    for tentativo in 0..4 {
+        if tentativo > 0 {
+            // pausa crescente: 0,25 s, 0,5 s, 1 s
+            let attesa = 0.25 * 2f64.powi(tentativo - 1);
+            let inizio = get_time();
+            while get_time() - inizio < attesa {
+                next_frame().await;
+            }
+        }
+        match load_file(percorso).await {
+            Ok(dati) => return Ok(dati),
+            Err(e) => errore = format!("{}: {:?}", percorso, e),
+        }
+    }
+    Err(errore)
+}
+
+/// Schermata di errore al posto di un gioco congelato: non si può andare avanti, ma almeno
+/// si sa cosa fare.
+pub async fn mostra_errore(dettaglio: &str) -> ! {
+    loop {
+        set_default_camera();
+        clear_background(Color::from_rgba(20, 10, 16, 255));
+        let (w, h) = (screen_width(), screen_height());
+        let righe = [
+            ("Impossibile caricare il gioco", 30.0, Color::from_rgba(255, 90, 90, 255)),
+            ("Controlla la connessione e ricarica la pagina.", 22.0, WHITE),
+            (dettaglio, 16.0, GRAY),
+        ];
+        for (i, (testo, dim, colore)) in righe.iter().enumerate() {
+            let m = measure_text(testo, None, *dim as u16, 1.0);
+            draw_text(testo, ((w - m.width) / 2.0).max(8.0), h / 2.0 - 30.0 + i as f32 * 36.0, *dim, *colore);
+        }
+        next_frame().await;
+    }
+}
+
 impl Archivio {
     async fn scarica(percorsi: Vec<String>, totale: usize) -> Self {
         let lavori = percorsi
             .iter()
             .map(|rel| {
                 let pieno = asset_path(rel);
-                start_coroutine(async move {
-                    let dati = load_file(&pieno).await;
-                    (pieno, dati)
-                })
+                start_coroutine(async move { scarica_con_ritentativi(&pieno).await })
             })
             .collect();
         let risultati = aspetta_tutte(lavori, 0, totale).await;
-        let file = percorsi
-            .into_iter()
-            .zip(risultati)
-            .map(|(rel, (pieno, dati))| {
-                let dati = dati.unwrap_or_else(|e| panic!("Errore caricamento {}: {:?}", pieno, e));
-                (rel, dati)
-            })
-            .collect();
+        let mut file = HashMap::with_capacity(percorsi.len());
+        for (rel, dati) in percorsi.into_iter().zip(risultati) {
+            match dati {
+                Ok(dati) => {
+                    file.insert(rel, dati);
+                }
+                Err(e) => mostra_errore(&e).await,
+            }
+        }
         Self { file }
     }
 
@@ -462,8 +527,12 @@ impl Assets {
         let bat_frames = archivio.anim("[MOBS]/[BAT]", "{i}.png", 3);
         let boss_frames = archivio.anim("[MOBS]/[BOSS]", "{i}.png", 4);
 
-        let effetti: [Option<Sound>; 8] = aspetta_tutte(suoni, n_file, totale)
+        // il gioco parte comunque dopo 6 secondi, al massimo senza qualche effetto sonoro
+        let effetti: [Option<Sound>; 8] = aspetta_con_limite(suoni, 6.0, n_file, totale)
             .await
+            .into_iter()
+            .map(Option::flatten)
+            .collect::<Vec<_>>()
             .try_into()
             .unwrap_or_else(|_| unreachable!("un suono per ogni effetto"));
         let [snd_grass, snd_coin, snd_morte, snd_stone, snd_acqua, snd_attack, snd_player_dmg, snd_bat_morte] = effetti;
@@ -532,20 +601,45 @@ impl Assets {
         }
     }
 
-    /// Mette in cache i caratteri di tutte le dimensioni di testo usate, alla scala attuale.
+    /// Mette in cache, alla scala attuale, i caratteri che il gioco disegna davvero.
     ///
-    /// Senza questo la cache dei glifi si riempiva mentre si disegnava e veniva ricreata a
-    /// metà frame: testo mancante o rovinato per un frame ("glBindTexture called with an
-    /// already deleted texture" nel browser).
+    /// Serve perché la cache dei glifi di macroquad, quando si riempie, raddoppia e ricopia
+    /// tutto pixel per pixel: se succede a metà frame il testo si rovina per un frame. Ma va
+    /// fatto con misura: precaricare tutte le dimensioni con tutti i caratteri, su uno schermo
+    /// grande o su un telefono, bloccava l'avvio per un secondo (o molti di più su un telefono
+    /// lento) e riempiva la memoria della GPU. Qui: set completi solo per il testo corrente,
+    /// per titoli e pulsanti solo le lettere che compaiono.
     pub fn prepara_testo(&self) {
-        const DIMENSIONI: [u16; 13] = [16, 22, 24, 25, 26, 28, 30, 32, 50, 56, 60, 80, 90];
-        let caratteri: Vec<char> = (' '..='~').chain("àèéìòùÀÈÉ".chars()).collect();
+        let completo: Vec<char> = (' '..='~').chain("àèéìòù".chars()).collect();
+        let solo = |testo: &str| -> Vec<char> {
+            let mut c: Vec<char> = testo.chars().collect();
+            c.sort_unstable();
+            c.dedup();
+            c
+        };
+        // stessa formula di parametri_testo, più la moltiplicazione per la densità dello schermo
+        // che macroquad fa da solo: così i glifi in cache sono esattamente quelli disegnati
         let s = crate::settings::scala_testo();
-        for font in [&self.arcade_font, &self.dungeon_font, &self.dialogo_font] {
-            for d in DIMENSIONI {
-                font.populate_font_cache(&caratteri, ((d as f32 * s).round() as u16).max(1));
-            }
+        let dpi = screen_dpi_scale();
+        let dim = |d: u16| (((d as f32 * s).round().max(1.0)) * dpi).ceil() as u16;
+
+        for d in [22, 28, 30] {
+            self.dungeon_font.populate_font_cache(&completo, dim(d));
         }
+        self.dungeon_font.populate_font_cache(&solo("LIVELLO 0123456789"), dim(56));
+        self.dungeon_font.populate_font_cache(&solo("Crediti"), dim(60));
+        self.dungeon_font.populate_font_cache(&solo("Sei MortoPausaVITTORIA!"), dim(80));
+        self.dungeon_font.populate_font_cache(&solo("Nemici Miei"), dim(90));
+
+        self.dialogo_font.populate_font_cache(&completo, dim(22));
+        self.dialogo_font.populate_font_cache(&solo("MeUgo Tognazzi"), dim(24));
+
+        for d in [24, 26, 32] {
+            self.arcade_font.populate_font_cache(&completo, dim(d));
+        }
+        self.arcade_font.populate_font_cache(&solo("!"), dim(22));
+        self.arcade_font.populate_font_cache(&solo("ATKEII"), dim(30));
+        self.arcade_font.populate_font_cache(&solo("STARTESCIRIPROVAMENURIPRENDIAUDIO: SINO"), dim(50));
     }
 
     pub fn tile(&self, id: u8) -> Option<&Texture2D> {
