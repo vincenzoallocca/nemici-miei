@@ -86,22 +86,39 @@ pub fn terreno_sotto(id: u8) -> u8 {
 // Il testo viene rasterizzato alla risoluzione reale dello schermo (e non a 960x720 per poi
 // essere ingrandito), così resta nitido anche a schermo intero.
 static SCALA_TESTO: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0
+static DPI_TESTO: AtomicU32 = AtomicU32::new(0x3f80_0000); // 1.0
+
+/// Da questa dimensione in su (titoli e pulsanti) il testo viene rasterizzato a scala fisica 1
+/// e ingrandito dalla GPU: sono font pixel-art, con il filtro "nearest" restano netti, e i
+/// loro glifi giganti non gonfiano la cache dei caratteri.
+pub const DIMENSIONE_TITOLI: u16 = 50;
 
 /// Imposta la scala del testo: pixel *logici* per unità di gioco (macroquad moltiplica poi da
 /// solo per la densità dello schermo, `dpi`).
 ///
-/// In pixel fisici la scala viene arrotondata a gradini di 0,5 e limitata a 2: i font sono
-/// pixel-art, oltre il doppio non si guadagna nitidezza ma si moltiplicano memoria e tempo
-/// per preparare i caratteri. Restituisce `true` se è cambiata.
+/// In pixel fisici la scala viene arrotondata a gradini di 0,5 e limitata a 1,5: i font sono
+/// pixel-art, oltre non si guadagna nitidezza visibile ma la cache dei caratteri cresce fino
+/// a texture da decine di MB da caricare sulla GPU. Restituisce `true` se è cambiata.
 pub fn imposta_scala_testo(scala_logica: f32, dpi: f32) -> bool {
     let dpi = dpi.max(0.1);
-    let fisica = ((scala_logica * dpi * 2.0).round() / 2.0).clamp(0.5, 2.0);
+    let fisica = ((scala_logica * dpi * 2.0).round() / 2.0).clamp(0.5, 1.5);
     let scala = fisica / dpi;
+    DPI_TESTO.store(dpi.to_bits(), Ordering::Relaxed);
     SCALA_TESTO.swap(scala.to_bits(), Ordering::Relaxed) != scala.to_bits()
 }
 
 pub fn scala_testo() -> f32 {
     f32::from_bits(SCALA_TESTO.load(Ordering::Relaxed))
+}
+
+/// Scala da usare per un testo di questa dimensione (vedi [`DIMENSIONE_TITOLI`]).
+pub fn scala_per_dimensione(dimensione: u16) -> f32 {
+    let s = scala_testo();
+    if dimensione >= DIMENSIONE_TITOLI {
+        s.min(1.0 / f32::from_bits(DPI_TESTO.load(Ordering::Relaxed)))
+    } else {
+        s
+    }
 }
 
 // ---------- testi ----------

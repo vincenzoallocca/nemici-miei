@@ -21,7 +21,7 @@ pub enum Ancora {
 
 /// Parametri per disegnare il testo alla risoluzione reale dello schermo (vedi `scala_testo`).
 pub fn parametri_testo(font: &Font, font_size: u16, color: Color) -> TextParams<'_> {
-    let s = scala_testo();
+    let s = scala_per_dimensione(font_size);
     TextParams {
         font: Some(font),
         font_size: ((font_size as f32 * s).round() as u16).max(1),
@@ -32,7 +32,7 @@ pub fn parametri_testo(font: &Font, font_size: u16, color: Color) -> TextParams<
 }
 
 pub fn misura_testo(testo: &str, font: &Font, font_size: u16) -> TextDimensions {
-    let s = scala_testo();
+    let s = scala_per_dimensione(font_size);
     measure_text(testo, Some(font), ((font_size as f32 * s).round() as u16).max(1), 1.0 / s)
 }
 

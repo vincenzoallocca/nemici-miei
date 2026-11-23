@@ -619,9 +619,11 @@ impl Assets {
         };
         // stessa formula di parametri_testo, più la moltiplicazione per la densità dello schermo
         // che macroquad fa da solo: così i glifi in cache sono esattamente quelli disegnati
-        let s = crate::settings::scala_testo();
         let dpi = screen_dpi_scale();
-        let dim = |d: u16| (((d as f32 * s).round().max(1.0)) * dpi).ceil() as u16;
+        let dim = |d: u16| {
+            let s = crate::settings::scala_per_dimensione(d);
+            (((d as f32 * s).round().max(1.0)) * dpi).ceil() as u16
+        };
 
         for d in [22, 28, 30] {
             self.dungeon_font.populate_font_cache(&completo, dim(d));
